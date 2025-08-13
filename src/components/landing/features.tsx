@@ -1,16 +1,11 @@
 import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Edit3, Share2, Sparkles, Languages, Rocket, LayoutTemplate } from 'lucide-react';
+import { Edit3, Share2, Languages, Rocket, LayoutTemplate } from 'lucide-react';
 
 const features = [
   {
     icon: <Edit3 className="w-8 h-8 text-primary" />,
     title: 'Criação Simplificada',
     description: 'Adicione produtos, descrições e preços em minutos com nossa interface intuitiva.',
-  },
-  {
-    icon: <Sparkles className="w-8 h-8 text-primary" />,
-    title: 'Descrições com IA',
-    description: 'Nossa inteligência artificial cria descrições de pratos que dão água na boca.',
   },
   {
     icon: <Share2 className="w-8 h-8 text-primary" />,
