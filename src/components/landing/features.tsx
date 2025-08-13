@@ -1,5 +1,5 @@
 import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Edit3, Share2, Languages, Rocket, LayoutTemplate } from 'lucide-react';
+import { Edit3, Share2, Rocket, LayoutTemplate } from 'lucide-react';
 
 const features = [
   {
@@ -22,11 +22,6 @@ const features = [
     title: 'Templates Prontos',
     description: 'Escolha entre diversos modelos de cardápio para combinar com a identidade do seu negócio.',
   },
-  {
-    icon: <Languages className="w-8 h-8 text-primary" />,
-    title: 'Suporte Multilíngue',
-    description: 'Traduza seu cardápio automaticamente para diversos idiomas e alcance mais clientes.',
-  },
 ];
 
 
@@ -38,9 +33,9 @@ export default function Features() {
           <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Tudo que você precisa para decolar</h2>
           <p className="mt-4 text-lg text-muted-foreground">Funcionalidades pensadas para simplificar sua vida e impressionar seus clientes.</p>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-8 justify-center">
           {features.map((feature) => (
-            <Card key={feature.title} className="flex flex-col items-center text-center p-6 bg-card hover:shadow-lg transition-shadow duration-300">
+            <Card key={feature.title} className="flex flex-col items-center text-center p-6 bg-card hover:shadow-lg transition-shadow duration-300 max-w-sm">
               <div className="p-4 bg-primary/10 rounded-full">
                 {feature.icon}
               </div>
