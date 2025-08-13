@@ -23,7 +23,7 @@ const features = [
 export default function Features() {
   return (
     <section className="py-20 sm:py-32 bg-muted/50">
-      <div className="container">
+      <div className="container px-4">
         <div className="text-center mb-16">
           <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Tudo que você precisa para decolar</h2>
           <p className="mt-4 text-lg text-muted-foreground">Funcionalidades pensadas para simplificar sua vida e impressionar seus clientes.</p>
