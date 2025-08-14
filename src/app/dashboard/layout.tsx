@@ -15,6 +15,7 @@ import {
 import { Home, Utensils, Settings, LogOut, Bookmark } from 'lucide-react';
 import { Logo } from '@/components/logo';
 import { usePathname } from 'next/navigation';
+import Link from 'next/link';
 
 export default function DashboardLayout({
   children,
@@ -34,38 +35,48 @@ export default function DashboardLayout({
         <SidebarContent>
           <SidebarMenu>
             <SidebarMenuItem>
-              <SidebarMenuButton href="/dashboard" isActive={pathname === '/dashboard'} tooltip="Início">
-                <Home />
-                Início
-              </SidebarMenuButton>
+                <Link href="/dashboard" passHref legacyBehavior>
+                    <SidebarMenuButton asChild isActive={pathname === '/dashboard'} tooltip="Início">
+                        <Home />
+                        Início
+                    </SidebarMenuButton>
+                </Link>
             </SidebarMenuItem>
             <SidebarMenuItem>
-              <SidebarMenuButton href="#" tooltip="Meu Cardápio">
-                <Utensils />
-                Meu Cardápio
-              </SidebarMenuButton>
+                <Link href="#" passHref legacyBehavior>
+                    <SidebarMenuButton asChild tooltip="Meu Cardápio">
+                        <Utensils />
+                        Meu Cardápio
+                    </SidebarMenuButton>
+                </Link>
             </SidebarMenuItem>
             <SidebarMenuItem>
-              <SidebarMenuButton href="/dashboard/categories" isActive={pathname === '/dashboard/categories'} tooltip="Categorias">
-                <Bookmark />
-                Categorias
-              </SidebarMenuButton>
+                 <Link href="/dashboard/categories" passHref legacyBehavior>
+                    <SidebarMenuButton asChild isActive={pathname === '/dashboard/categories'} tooltip="Categorias">
+                        <Bookmark />
+                        Categorias
+                    </SidebarMenuButton>
+                 </Link>
             </SidebarMenuItem>
             <SidebarMenuItem>
-              <SidebarMenuButton href="#" tooltip="Configurações">
-                <Settings />
-                Configurações
-              </SidebarMenuButton>
+                <Link href="#" passHref legacyBehavior>
+                    <SidebarMenuButton asChild tooltip="Configurações">
+                        <Settings />
+                        Configurações
+                    </SidebarMenuButton>
+                </Link>
             </SidebarMenuItem>
           </SidebarMenu>
         </SidebarContent>
         <SidebarFooter>
             <SidebarMenu>
                  <SidebarMenuItem>
-                    <SidebarMenuButton href="/" tooltip="Sair">
-                        <LogOut />
-                        Sair
-                    </SidebarMenuButton>
+                    <Link href="/" passHref legacyBehavior>
+                        <SidebarMenuButton asChild tooltip="Sair">
+                            <LogOut />
+                            Sair
+                        </SidebarMenuButton>
+                    </Link>
                 </SidebarMenuItem>
             </SidebarMenu>
         </SidebarFooter>
