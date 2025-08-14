@@ -232,6 +232,7 @@ export default function CategoriesPage() {
         </Dialog>
       </header>
       <main className="flex-1 p-6">
+       <AlertDialog open={!!deletingCategory} onOpenChange={(isOpen) => !isOpen && setDeletingCategory(null)}>
         <Card>
           <CardHeader>
             <div className="flex justify-between items-start">
@@ -315,6 +316,20 @@ export default function CategoriesPage() {
             </div>
           </CardFooter>
         </Card>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+                <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
+                <AlertDialogDescription>
+                    Essa ação não pode ser desfeita. Isso irá excluir permanentemente a categoria
+                    <span className="font-bold"> "{deletingCategory?.name}"</span>.
+                </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+                <AlertDialogCancel onClick={() => setDeletingCategory(null)}>Cancelar</AlertDialogCancel>
+                <AlertDialogAction onClick={confirmDelete}>Excluir</AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+        </AlertDialog>
       </main>
        <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
             <DialogContent>
@@ -362,22 +377,6 @@ export default function CategoriesPage() {
                 </Form>
             </DialogContent>
         </Dialog>
-
-        <AlertDialog open={!!deletingCategory} onOpenChange={(isOpen) => !isOpen && setDeletingCategory(null)}>
-            <AlertDialogContent>
-                <AlertDialogHeader>
-                    <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                        Essa ação não pode ser desfeita. Isso irá excluir permanentemente a categoria
-                        <span className="font-bold"> "{deletingCategory?.name}"</span>.
-                    </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                    <AlertDialogCancel onClick={() => setDeletingCategory(null)}>Cancelar</AlertDialogCancel>
-                    <AlertDialogAction onClick={confirmDelete}>Excluir</AlertDialogAction>
-                </AlertDialogFooter>
-            </AlertDialogContent>
-        </AlertDialog>
     </>
   );
 }
