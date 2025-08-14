@@ -40,7 +40,7 @@ export default function DashboardPage() {
               </SidebarMenuButton>
             </SidebarMenuItem>
             <SidebarMenuItem>
-              <SidebarMenuButton href="#" tooltip="Categorias">
+              <SidebarMenuButton href="/dashboard/categories" tooltip="Categorias">
                 <Bookmark />
                 Categorias
               </SidebarMenuButton>
