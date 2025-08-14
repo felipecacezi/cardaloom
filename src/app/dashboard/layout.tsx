@@ -37,32 +37,40 @@ export default function DashboardLayout({
             <SidebarMenuItem>
                 <Link href="/dashboard" passHref>
                     <SidebarMenuButton asChild isActive={pathname === '/dashboard'} tooltip="Início">
-                        <Home />
-                        Início
+                        <span>
+                            <Home />
+                            Início
+                        </span>
                     </SidebarMenuButton>
                 </Link>
             </SidebarMenuItem>
             <SidebarMenuItem>
                 <Link href="#" passHref>
                     <SidebarMenuButton asChild tooltip="Meu Cardápio">
-                        <Utensils />
-                        Meu Cardápio
+                        <span>
+                            <Utensils />
+                            Meu Cardápio
+                        </span>
                     </SidebarMenuButton>
                 </Link>
             </SidebarMenuItem>
             <SidebarMenuItem>
                  <Link href="/dashboard/categories" passHref>
                     <SidebarMenuButton asChild isActive={pathname === '/dashboard/categories'} tooltip="Categorias">
-                        <Bookmark />
-                        Categorias
+                        <span>
+                            <Bookmark />
+                            Categorias
+                        </span>
                     </SidebarMenuButton>
                  </Link>
             </SidebarMenuItem>
             <SidebarMenuItem>
                 <Link href="#" passHref>
                     <SidebarMenuButton asChild tooltip="Configurações">
-                        <Settings />
-                        Configurações
+                        <span>
+                            <Settings />
+                            Configurações
+                        </span>
                     </SidebarMenuButton>
                 </Link>
             </SidebarMenuItem>
@@ -73,8 +81,10 @@ export default function DashboardLayout({
                  <SidebarMenuItem>
                     <Link href="/" passHref>
                         <SidebarMenuButton asChild tooltip="Sair">
-                            <LogOut />
-                            Sair
+                            <span>
+                                <LogOut />
+                                Sair
+                            </span>
                         </SidebarMenuButton>
                     </Link>
                 </SidebarMenuItem>
