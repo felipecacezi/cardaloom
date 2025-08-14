@@ -36,6 +36,17 @@ import {
   DialogTrigger,
   DialogClose,
 } from "@/components/ui/dialog";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
 
@@ -70,6 +81,7 @@ export default function CategoriesPage() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+  const [deletingCategory, setDeletingCategory] = useState<Category | null>(null);
 
   const itemsPerPage = 5;
   const { toast } = useToast();
@@ -142,6 +154,21 @@ export default function CategoriesPage() {
     setEditingCategory(category);
     setIsEditModalOpen(true);
   };
+
+  const handleDeleteClick = (category: Category) => {
+    setDeletingCategory(category);
+  };
+
+  const confirmDelete = () => {
+    if (!deletingCategory) return;
+
+    setCategories(prev => prev.filter(c => c.id !== deletingCategory.id));
+    toast({
+      title: "Categoria Excluída!",
+      description: `A categoria "${deletingCategory.name}" foi removida com sucesso.`,
+    });
+    setDeletingCategory(null);
+  }
 
   return (
     <>
@@ -250,10 +277,12 @@ export default function CategoriesPage() {
                             <Edit className="mr-2 h-4 w-4" />
                             <span>Editar</span>
                           </DropdownMenuItem>
-                          <DropdownMenuItem className="text-red-500">
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            <span>Excluir</span>
-                          </DropdownMenuItem>
+                          <AlertDialogTrigger asChild>
+                             <DropdownMenuItem className="text-red-500" onSelect={() => handleDeleteClick(category)}>
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                <span>Excluir</span>
+                            </DropdownMenuItem>
+                          </AlertDialogTrigger>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
@@ -333,6 +362,22 @@ export default function CategoriesPage() {
                 </Form>
             </DialogContent>
         </Dialog>
+
+        <AlertDialog open={!!deletingCategory} onOpenChange={(isOpen) => !isOpen && setDeletingCategory(null)}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        Essa ação não pode ser desfeita. Isso irá excluir permanentemente a categoria
+                        <span className="font-bold"> "{deletingCategory?.name}"</span>.
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel onClick={() => setDeletingCategory(null)}>Cancelar</AlertDialogCancel>
+                    <AlertDialogAction onClick={confirmDelete}>Excluir</AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
     </>
   );
 }
