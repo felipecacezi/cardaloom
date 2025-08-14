@@ -1,5 +1,7 @@
+
 import { Button } from '@/components/ui/button';
 import Image from 'next/image';
+import Link from 'next/link';
 
 export default function Hero() {
   return (
@@ -12,7 +14,9 @@ export default function Hero() {
           Crie e compartilhe seu cardápio online de forma rápida e prática. Aumente sua visibilidade sem a burocracia dos aplicativos convencionais.
         </p>
         <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
-          <Button size="lg">Criar meu cardápio grátis</Button>
+          <Link href="/signup">
+            <Button size="lg">Criar meu cardápio grátis</Button>
+          </Link>
           <Button size="lg" variant="outline">
             ver cardapios
           </Button>
