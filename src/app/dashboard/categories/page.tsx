@@ -1,9 +1,10 @@
 
 'use client';
 
+import { useState } from 'react';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { PlusCircle, MoreVertical, Edit, Trash2 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -28,9 +29,25 @@ const categories = [
   { name: 'Sobremesas', description: 'Deliciosas sobremesas caseiras para finalizar com chave de ouro.' },
   { name: 'Entradas e Porções', description: 'Aperitivos perfeitos para começar ou compartilhar.' },
   { name: 'Combos Especiais', description: 'Ofertas imperdíveis para toda a família e amigos.' },
+  { name: 'Lanches', description: 'Sanduíches e hambúrgueres artesanais.' },
+  { name: 'Opções Vegetarianas', description: 'Pratos deliciosos sem carne.' },
+  { name: 'Saladas', description: 'Opções leves e saudáveis.' },
+  { name: 'Massas', description: 'Receitas italianas clássicas e da casa.' },
 ];
 
 export default function CategoriesPage() {
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 5;
+
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentCategories = categories.slice(indexOfFirstItem, indexOfLastItem);
+
+  const totalPages = Math.ceil(categories.length / itemsPerPage);
+
+  const paginate = (pageNumber: number) => setCurrentPage(pageNumber);
+
+
   return (
     <>
       <header className="flex h-14 items-center gap-4 border-b bg-muted/40 px-6 sticky top-0 z-30">
@@ -60,7 +77,7 @@ export default function CategoriesPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {categories.map((category) => (
+                {currentCategories.map((category) => (
                   <TableRow key={category.name}>
                     <TableCell className="font-medium">{category.name}</TableCell>
                     <TableCell>{category.description}</TableCell>
@@ -88,6 +105,29 @@ export default function CategoriesPage() {
               </TableBody>
             </Table>
           </CardContent>
+          <CardFooter className="flex justify-between items-center">
+            <span className="text-sm text-muted-foreground">
+              Mostrando {indexOfFirstItem + 1}-{Math.min(indexOfLastItem, categories.length)} de {categories.length} categorias.
+            </span>
+            <div className="flex gap-2">
+              <Button 
+                variant="outline"
+                size="sm"
+                onClick={() => paginate(currentPage - 1)}
+                disabled={currentPage === 1}
+              >
+                Anterior
+              </Button>
+              <Button 
+                variant="outline"
+                size="sm"
+                onClick={() => paginate(currentPage + 1)}
+                disabled={currentPage === totalPages}
+              >
+                Próximo
+              </Button>
+            </div>
+          </CardFooter>
         </Card>
       </main>
     </>
