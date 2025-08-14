@@ -14,7 +14,7 @@ export default function Hero() {
         <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
           <Button size="lg">Criar meu cardápio grátis</Button>
           <Button size="lg" variant="outline">
-            Ver um exemplo
+            ver cardapios
           </Button>
         </div>
       </div>
