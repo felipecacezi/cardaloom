@@ -241,7 +241,7 @@ export default function SignUpPage() {
       </Card>
        <p className="mt-4 text-center text-sm text-muted-foreground">
         Já tem uma conta?{' '}
-        <Link href="#" className="font-semibold text-primary hover:underline">
+        <Link href="/login" className="font-semibold text-primary hover:underline">
           Faça login
         </Link>
       </p>
