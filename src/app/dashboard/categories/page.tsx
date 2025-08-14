@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { PlusCircle, MoreVertical, Edit, Trash2 } from 'lucide-react';
+import { PlusCircle, MoreVertical, Edit, Trash2, Search } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,6 +20,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Input } from '@/components/ui/input';
 
 
 const categories = [
@@ -36,14 +37,24 @@ const categories = [
 ];
 
 export default function CategoriesPage() {
+  const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
 
+  const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchQuery(event.target.value);
+    setCurrentPage(1); 
+  };
+  
+  const filteredCategories = categories.filter(category =>
+    category.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentCategories = categories.slice(indexOfFirstItem, indexOfLastItem);
+  const currentCategories = filteredCategories.slice(indexOfFirstItem, indexOfLastItem);
 
-  const totalPages = Math.ceil(categories.length / itemsPerPage);
+  const totalPages = Math.ceil(filteredCategories.length / itemsPerPage);
 
   const paginate = (pageNumber: number) => setCurrentPage(pageNumber);
 
@@ -64,8 +75,22 @@ export default function CategoriesPage() {
       <main className="flex-1 p-6">
         <Card>
           <CardHeader>
-             <CardTitle>Suas Categorias</CardTitle>
-            <CardDescription>Visualize e gerencie todas as suas categorias cadastradas.</CardDescription>
+            <div className="flex justify-between items-start">
+                <div>
+                    <CardTitle>Suas Categorias</CardTitle>
+                    <CardDescription>Visualize e gerencie todas as suas categorias cadastradas.</CardDescription>
+                </div>
+                <div className="relative w-full max-w-sm">
+                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                        type="search"
+                        placeholder="Pesquisar categoria..."
+                        className="pl-8"
+                        value={searchQuery}
+                        onChange={handleSearchChange}
+                    />
+                </div>
+            </div>
           </CardHeader>
           <CardContent>
             <Table>
@@ -107,7 +132,7 @@ export default function CategoriesPage() {
           </CardContent>
           <CardFooter className="flex justify-between items-center">
             <span className="text-sm text-muted-foreground">
-              Mostrando {indexOfFirstItem + 1}-{Math.min(indexOfLastItem, categories.length)} de {categories.length} categorias.
+              Mostrando {Math.min(indexOfFirstItem + 1, filteredCategories.length)}-{Math.min(indexOfLastItem, filteredCategories.length)} de {filteredCategories.length} categorias.
             </span>
             <div className="flex gap-2">
               <Button 
