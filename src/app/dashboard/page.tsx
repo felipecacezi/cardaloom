@@ -13,7 +13,7 @@ import {
   SidebarTrigger,
   SidebarFooter,
 } from '@/components/ui/sidebar';
-import { Home, Utensils, Settings, LogOut } from 'lucide-react';
+import { Home, Utensils, Settings, LogOut, Bookmark } from 'lucide-react';
 import { Logo } from '@/components/logo';
 
 export default function DashboardPage() {
@@ -37,6 +37,12 @@ export default function DashboardPage() {
               <SidebarMenuButton href="#" tooltip="Meu Cardápio">
                 <Utensils />
                 Meu Cardápio
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton href="#" tooltip="Categorias">
+                <Bookmark />
+                Categorias
               </SidebarMenuButton>
             </SidebarMenuItem>
             <SidebarMenuItem>
