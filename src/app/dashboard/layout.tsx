@@ -35,7 +35,7 @@ export default function DashboardLayout({
         <SidebarContent>
           <SidebarMenu>
             <SidebarMenuItem>
-                <Link href="/dashboard" passHref legacyBehavior>
+                <Link href="/dashboard" passHref>
                     <SidebarMenuButton asChild isActive={pathname === '/dashboard'} tooltip="Início">
                         <Home />
                         Início
@@ -43,7 +43,7 @@ export default function DashboardLayout({
                 </Link>
             </SidebarMenuItem>
             <SidebarMenuItem>
-                <Link href="#" passHref legacyBehavior>
+                <Link href="#" passHref>
                     <SidebarMenuButton asChild tooltip="Meu Cardápio">
                         <Utensils />
                         Meu Cardápio
@@ -51,7 +51,7 @@ export default function DashboardLayout({
                 </Link>
             </SidebarMenuItem>
             <SidebarMenuItem>
-                 <Link href="/dashboard/categories" passHref legacyBehavior>
+                 <Link href="/dashboard/categories" passHref>
                     <SidebarMenuButton asChild isActive={pathname === '/dashboard/categories'} tooltip="Categorias">
                         <Bookmark />
                         Categorias
@@ -59,7 +59,7 @@ export default function DashboardLayout({
                  </Link>
             </SidebarMenuItem>
             <SidebarMenuItem>
-                <Link href="#" passHref legacyBehavior>
+                <Link href="#" passHref>
                     <SidebarMenuButton asChild tooltip="Configurações">
                         <Settings />
                         Configurações
@@ -71,7 +71,7 @@ export default function DashboardLayout({
         <SidebarFooter>
             <SidebarMenu>
                  <SidebarMenuItem>
-                    <Link href="/" passHref legacyBehavior>
+                    <Link href="/" passHref>
                         <SidebarMenuButton asChild tooltip="Sair">
                             <LogOut />
                             Sair
