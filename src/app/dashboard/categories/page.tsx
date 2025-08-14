@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -39,17 +39,23 @@ import {
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
 
-const categoriesData = [
-  { name: 'Pizzas Salgadas', description: 'As melhores pizzas com ingredientes frescos e selecionados.' },
-  { name: 'Pizzas Doces', description: 'Combinações surpreendentes para adoçar o seu paladar.' },
-  { name: 'Bebidas', description: 'Refrigerantes, sucos naturais, cervejas e águas.' },
-  { name: 'Sobremesas', description: 'Deliciosas sobremesas caseiras para finalizar com chave de ouro.' },
-  { name: 'Entradas e Porções', description: 'Aperitivos perfeitos para começar ou compartilhar.' },
-  { name: 'Combos Especiais', description: 'Ofertas imperdíveis para toda a família e amigos.' },
-  { name: 'Lanches', description: 'Sanduíches e hambúrgueres artesanais.' },
-  { name: 'Opções Vegetarianas', description: 'Pratos deliciosos sem carne.' },
-  { name: 'Saladas', description: 'Opções leves e saudáveis.' },
-  { name: 'Massas', description: 'Receitas italianas clássicas e da casa.' },
+type Category = {
+  id: number;
+  name: string;
+  description: string;
+};
+
+const categoriesData: Category[] = [
+  { id: 1, name: 'Pizzas Salgadas', description: 'As melhores pizzas com ingredientes frescos e selecionados.' },
+  { id: 2, name: 'Pizzas Doces', description: 'Combinações surpreendentes para adoçar o seu paladar.' },
+  { id: 3, name: 'Bebidas', description: 'Refrigerantes, sucos naturais, cervejas e águas.' },
+  { id: 4, name: 'Sobremesas', description: 'Deliciosas sobremesas caseiras para finalizar com chave de ouro.' },
+  { id: 5, name: 'Entradas e Porções', description: 'Aperitivos perfeitos para começar ou compartilhar.' },
+  { id: 6, name: 'Combos Especiais', description: 'Ofertas imperdíveis para toda a família e amigos.' },
+  { id: 7, name: 'Lanches', description: 'Sanduíches e hambúrgueres artesanais.' },
+  { id: 8, name: 'Opções Vegetarianas', description: 'Pratos deliciosos sem carne.' },
+  { id: 9, name: 'Saladas', description: 'Opções leves e saudáveis.' },
+  { id: 10, name: 'Massas', description: 'Receitas italianas clássicas e da casa.' },
 ];
 
 const formSchema = z.object({
@@ -61,17 +67,30 @@ export default function CategoriesPage() {
   const [categories, setCategories] = useState(categoriesData);
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+
   const itemsPerPage = 5;
   const { toast } = useToast();
 
-  const form = useForm<z.infer<typeof formSchema>>({
+  const createForm = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
-    defaultValues: {
-      name: '',
-      description: '',
-    },
+    defaultValues: { name: '', description: '' },
   });
+
+  const editForm = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+  });
+
+  useEffect(() => {
+    if (editingCategory) {
+      editForm.reset({
+        name: editingCategory.name,
+        description: editingCategory.description,
+      });
+    }
+  }, [editingCategory, editForm]);
 
   const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setSearchQuery(event.target.value);
@@ -90,15 +109,39 @@ export default function CategoriesPage() {
 
   const paginate = (pageNumber: number) => setCurrentPage(pageNumber);
 
-  function onSubmit(values: z.infer<typeof formSchema>) {
-    setCategories(prev => [...prev, { name: values.name, description: values.description || '' }]);
+  function onCreateSubmit(values: z.infer<typeof formSchema>) {
+    const newCategory = {
+      id: Date.now(), 
+      name: values.name,
+      description: values.description || ''
+    };
+    setCategories(prev => [...prev, newCategory]);
     toast({
       title: "Categoria Criada!",
       description: `A categoria "${values.name}" foi adicionada com sucesso.`,
     });
-    form.reset();
-    setIsModalOpen(false);
+    createForm.reset();
+    setIsCreateModalOpen(false);
   }
+
+  function onEditSubmit(values: z.infer<typeof formSchema>) {
+    if (!editingCategory) return;
+
+    setCategories(prev => prev.map(c => 
+      c.id === editingCategory.id ? { ...c, name: values.name, description: values.description || '' } : c
+    ));
+    toast({
+      title: "Categoria Atualizada!",
+      description: `A categoria "${values.name}" foi atualizada com sucesso.`,
+    });
+    setIsEditModalOpen(false);
+    setEditingCategory(null);
+  }
+
+  const handleEditClick = (category: Category) => {
+    setEditingCategory(category);
+    setIsEditModalOpen(true);
+  };
 
   return (
     <>
@@ -108,7 +151,7 @@ export default function CategoriesPage() {
           <h1 className="text-lg font-semibold md:text-2xl">Gerenciar Categorias</h1>
           <p className="text-sm text-muted-foreground">Adicione, edite ou remova as categorias do seu cardápio.</p>
         </div>
-        <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+        <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
             <DialogTrigger asChild>
                 <Button>
                     <PlusCircle className="mr-2" />
@@ -122,10 +165,10 @@ export default function CategoriesPage() {
                         Preencha as informações abaixo para adicionar uma nova categoria ao seu cardápio.
                     </DialogDescription>
                 </DialogHeader>
-                <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <Form {...createForm}>
+                    <form onSubmit={createForm.handleSubmit(onCreateSubmit)} className="space-y-4">
                         <FormField
-                            control={form.control}
+                            control={createForm.control}
                             name="name"
                             render={({ field }) => (
                                 <FormItem>
@@ -138,7 +181,7 @@ export default function CategoriesPage() {
                             )}
                         />
                         <FormField
-                            control={form.control}
+                            control={createForm.control}
                             name="description"
                             render={({ field }) => (
                                 <FormItem>
@@ -192,7 +235,7 @@ export default function CategoriesPage() {
               </TableHeader>
               <TableBody>
                 {currentCategories.map((category) => (
-                  <TableRow key={category.name}>
+                  <TableRow key={category.id}>
                     <TableCell className="font-medium">{category.name}</TableCell>
                     <TableCell>{category.description}</TableCell>
                     <TableCell className="text-right">
@@ -203,7 +246,7 @@ export default function CategoriesPage() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent>
-                          <DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleEditClick(category)}>
                             <Edit className="mr-2 h-4 w-4" />
                             <span>Editar</span>
                           </DropdownMenuItem>
@@ -244,6 +287,52 @@ export default function CategoriesPage() {
           </CardFooter>
         </Card>
       </main>
+       <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Editar Categoria</DialogTitle>
+                    <DialogDescription>
+                        Altere as informações da categoria selecionada.
+                    </DialogDescription>
+                </DialogHeader>
+                <Form {...editForm}>
+                    <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-4">
+                        <FormField
+                            control={editForm.control}
+                            name="name"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Nome da Categoria</FormLabel>
+                                    <FormControl>
+                                        <Input placeholder="Ex: Bebidas" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={editForm.control}
+                            name="description"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Descrição (Opcional)</FormLabel>
+                                    <FormControl>
+                                        <Textarea placeholder="Uma breve descrição da categoria" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                         <DialogFooter>
+                            <DialogClose asChild>
+                                <Button type="button" variant="outline" onClick={() => setIsEditModalOpen(false)}>Cancelar</Button>
+                            </DialogClose>
+                            <Button type="submit">Salvar Alterações</Button>
+                        </DialogFooter>
+                    </form>
+                </Form>
+            </DialogContent>
+        </Dialog>
     </>
   );
 }
