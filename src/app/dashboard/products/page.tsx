@@ -78,8 +78,15 @@ const productsData: Product[] = [
     { id: 1, name: 'Pizza Margherita', price: 45.00, description: 'Molho de tomate, mussarela fresca e manjericão.', category: 'Pizzas Salgadas', image: 'https://placehold.co/100x100.png', addons: [], isVisible: true },
     { id: 2, name: 'Pizza Calabresa', price: 48.50, description: 'Molho de tomate, mussarela, calabresa e cebola.', category: 'Pizzas Salgadas', image: 'https://placehold.co/100x100.png', addons: [{ id: 1, name: 'Borda Recheada Catupiry', price: 8.00 }, { id: 3, name: 'Bacon Extra', price: 6.50 }], isVisible: true },
     { id: 3, name: 'Pizza Quatro Queijos', price: 52.00, description: 'Molho de tomate, mussarela, provolone, parmesão e gorgonzola.', category: 'Pizzas Salgadas', image: 'https://placehold.co/100x100.png', addons: [{ id: 1, name: 'Borda Recheada Catupiry', price: 8.00 }, { id: 2, name: 'Borda Recheada Cheddar', price: 8.00 }], isVisible: true },
-    { id: 4, name: 'Pizza de Chocolate', price: 40.00, description: 'Chocolate ao leite com morangos frescos.', category: 'Pizzas Doces', image: 'https://placehold.co/100x100.png', addons: [], isVisible: true },
-    { id: 5, name: 'Coca-Cola 2L', price: 10.00, description: 'Refrigerante gelado para acompanhar sua pizza.', category: 'Bebidas', image: 'https://placehold.co/100x100.png', addons: [], isVisible: false },
+    { id: 4, name: 'Pizza Portuguesa', price: 50.00, description: 'Molho, mussarela, presunto, ovo, cebola, pimentão e azeitona.', category: 'Pizzas Salgadas', image: 'https://placehold.co/100x100.png', addons: [{id: 6, name: 'Ovo', price: 3.00}], isVisible: true },
+    { id: 5, name: 'Pizza Frango com Catupiry', price: 51.00, description: 'Molho de tomate, frango desfiado coberto com Catupiry.', category: 'Pizzas Salgadas', image: 'https://placehold.co/100x100.png', addons: [], isVisible: true },
+    { id: 6, name: 'Pizza de Chocolate com Morango', price: 42.00, description: 'Deliciosa pizza doce com chocolate ao leite e morangos frescos.', category: 'Pizzas Doces', image: 'https://placehold.co/100x100.png', addons: [], isVisible: true },
+    { id: 7, name: 'Pizza Romeu e Julieta', price: 40.00, description: 'Mussarela derretida com uma generosa camada de goiabada.', category: 'Pizzas Doces', image: 'https://placehold.co/100x100.png', addons: [], isVisible: true },
+    { id: 8, name: 'Coca-Cola 2L', price: 10.00, description: 'Refrigerante gelado para acompanhar sua pizza.', category: 'Bebidas', image: 'https://placehold.co/100x100.png', addons: [], isVisible: true },
+    { id: 9, name: 'Guaraná Antarctica 2L', price: 10.00, description: 'O sabor original do Brasil, bem gelado.', category: 'Bebidas', image: 'https://placehold.co/100x100.png', addons: [], isVisible: true },
+    { id: 10, name: 'Água Mineral sem Gás 500ml', price: 4.00, description: 'Para se manter hidratado.', category: 'Bebidas', image: 'https://placehold.co/100x100.png', addons: [], isVisible: false },
+    { id: 11, name: 'Pudim de Leite Condensado', price: 8.00, description: 'A sobremesa clássica que todo mundo ama.', category: 'Sobremesas', image: 'https://placehold.co/100x100.png', addons: [], isVisible: true },
+    { id: 12, name: 'Mousse de Maracujá', price: 9.00, description: 'Azedinho e doce na medida certa.', category: 'Sobremesas', image: 'https://placehold.co/100x100.png', addons: [], isVisible: true },
 ];
 
 const categoriesData = [
@@ -604,5 +611,7 @@ export default function ProductsPage() {
     </>
   );
 }
+
+    
 
     
