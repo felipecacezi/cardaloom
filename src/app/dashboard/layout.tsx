@@ -12,7 +12,7 @@ import {
   SidebarInset,
   SidebarFooter,
 } from '@/components/ui/sidebar';
-import { Home, Utensils, Settings, LogOut, Bookmark } from 'lucide-react';
+import { Home, Utensils, Settings, LogOut, Bookmark, PlusSquare } from 'lucide-react';
 import { Logo } from '@/components/logo';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
@@ -60,6 +60,16 @@ export default function DashboardLayout({
                         <span>
                             <Bookmark />
                             Categorias
+                        </span>
+                    </SidebarMenuButton>
+                 </Link>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+                 <Link href="/dashboard/addons" passHref>
+                    <SidebarMenuButton asChild isActive={pathname === '/dashboard/addons'} tooltip="Adicionais">
+                        <span>
+                            <PlusSquare />
+                            Adicionais
                         </span>
                     </SidebarMenuButton>
                  </Link>
