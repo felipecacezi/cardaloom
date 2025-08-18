@@ -12,7 +12,7 @@ import {
   SidebarInset,
   SidebarFooter,
 } from '@/components/ui/sidebar';
-import { Home, Utensils, Settings, LogOut, Bookmark, PlusSquare } from 'lucide-react';
+import { Home, Utensils, Settings, LogOut, Bookmark, PlusSquare, CreditCard } from 'lucide-react';
 import { Logo } from '@/components/logo';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
@@ -73,6 +73,16 @@ export default function DashboardLayout({
                         </span>
                     </SidebarMenuButton>
                  </Link>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+                <Link href="/dashboard/subscription">
+                    <SidebarMenuButton asChild isActive={pathname === '/dashboard/subscription'} tooltip="Assinatura">
+                        <span>
+                            <CreditCard />
+                            Assinatura
+                        </span>
+                    </SidebarMenuButton>
+                </Link>
             </SidebarMenuItem>
             <SidebarMenuItem>
                 <Link href="/dashboard/settings">
