@@ -34,7 +34,6 @@ export function Combobox({ options, placeholder, searchPlaceholder, notFoundText
   const [internalValue, setInternalValue] = React.useState("")
   
   const value = controlledValue ?? internalValue;
-  const setValue = controlledValue ? onSelect : setInternalValue;
 
 
   return (
@@ -61,12 +60,9 @@ export function Combobox({ options, placeholder, searchPlaceholder, notFoundText
                 {options.map((option) => (
                 <CommandItem
                     key={option.value}
-                    value={option.label}
-                    onSelect={(currentLabel) => {
-                        const selectedOption = options.find(opt => opt.label.toLowerCase() === currentLabel.toLowerCase());
-                        if (selectedOption) {
-                            onSelect(selectedOption.value);
-                        }
+                    value={option.value}
+                    onSelect={(currentValue) => {
+                        onSelect(currentValue === value ? "" : currentValue)
                         setOpen(false)
                     }}
                 >
