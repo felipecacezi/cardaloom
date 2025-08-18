@@ -373,6 +373,7 @@ export default function ProductsPage() {
                         placeholder="Selecione um adicional..."
                         searchPlaceholder="Pesquisar adicional..."
                         notFoundText="Nenhum adicional encontrado."
+                        value={''}
                         onSelect={(value) => {
                             const addonId = parseInt(value, 10);
                             if (!field.value?.includes(addonId)) {
