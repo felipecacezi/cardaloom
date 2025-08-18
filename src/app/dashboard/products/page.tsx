@@ -10,7 +10,7 @@ import Image from 'next/image';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { PlusCircle, MoreVertical, Edit, Trash2, Search } from 'lucide-react';
+import { PlusCircle, MoreVertical, Edit, Trash2, Search, Loader2 } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -86,7 +86,7 @@ const formSchema = z.object({
   ),
   description: z.string().min(5, { message: "A descrição é obrigatória." }),
   category: z.string({ required_error: "A categoria é obrigatória."}),
-  image: z.string().url({ message: "Por favor, insira uma URL de imagem válida." }).optional(),
+  image: z.any(),
 });
 
 
@@ -98,6 +98,7 @@ export default function ProductsPage() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [deletingProduct, setDeletingProduct] = useState<Product | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
 
   const itemsPerPage = 5;
   const { toast } = useToast();
@@ -117,7 +118,7 @@ export default function ProductsPage() {
         image: editingProduct.image,
       });
     } else {
-        form.reset({ name: '', price: 0, description: '', category: '', image: '' });
+        form.reset({ name: '', price: 0, description: '', category: '', image: null });
     }
   }, [editingProduct, form]);
 
@@ -138,10 +139,43 @@ export default function ProductsPage() {
 
   const paginate = (pageNumber: number) => setCurrentPage(pageNumber);
 
-  function onSubmit(values: z.infer<typeof formSchema>) {
+  async function onSubmit(values: z.infer<typeof formSchema>) {
+    setIsUploading(true);
+    let imageUrl = editingProduct?.image || 'https://placehold.co/100x100.png';
+
+    if (values.image && values.image[0]) {
+        const file = values.image[0];
+        const formData = new FormData();
+        formData.append('file', file);
+
+        try {
+            const response = await fetch('/api/upload', {
+                method: 'POST',
+                body: formData,
+            });
+
+            if (!response.ok) {
+                throw new Error('Falha no upload da imagem.');
+            }
+
+            const data = await response.json();
+            imageUrl = data.filePath;
+
+        } catch (error) {
+            toast({
+                variant: "destructive",
+                title: "Erro no Upload!",
+                description: "Não foi possível enviar a imagem. Tente novamente.",
+            });
+            setIsUploading(false);
+            return;
+        }
+    }
+
+
      if (editingProduct) {
         setProducts(prev => prev.map(p =>
-            p.id === editingProduct.id ? { ...editingProduct, ...values, image: values.image || 'https://placehold.co/100x100.png' } : p
+            p.id === editingProduct.id ? { ...editingProduct, ...values, image: imageUrl } : p
         ));
         toast({
             title: "Produto Atualizado!",
@@ -153,7 +187,7 @@ export default function ProductsPage() {
         const newProduct = {
             id: Date.now(),
             ...values,
-            image: values.image || 'https://placehold.co/100x100.png'
+            image: imageUrl
         };
         setProducts(prev => [...prev, newProduct]);
         toast({
@@ -162,7 +196,8 @@ export default function ProductsPage() {
         });
         setIsCreateModalOpen(false);
      }
-     form.reset({ name: '', price: 0, description: '', category: '' });
+     form.reset({ name: '', price: 0, description: '', category: '', image: null });
+     setIsUploading(false);
   }
 
   const handleEditClick = (product: Product) => {
@@ -172,6 +207,7 @@ export default function ProductsPage() {
   
   const handleCreateClick = () => {
     setEditingProduct(null);
+    form.reset({ name: '', price: 0, description: '', category: '', image: null });
     setIsCreateModalOpen(true);
   }
 
@@ -189,7 +225,16 @@ export default function ProductsPage() {
     return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   };
   
-  const renderFormFields = () => (
+  const renderFormFields = () => {
+    const imageField = form.watch('image');
+    let previewUrl = '';
+    if (typeof imageField === 'string') {
+        previewUrl = imageField;
+    } else if (imageField && imageField[0]) {
+        previewUrl = URL.createObjectURL(imageField[0]);
+    }
+
+    return (
     <>
         <div className="grid grid-cols-2 gap-4">
             <FormField
@@ -257,18 +302,27 @@ export default function ProductsPage() {
         <FormField
             control={form.control}
             name="image"
-            render={({ field }) => (
+            render={({ field: { onChange, value, ...rest } }) => (
                 <FormItem>
-                    <FormLabel>URL da Imagem (Opcional)</FormLabel>
-                    <FormControl>
-                        <Input placeholder="https://exemplo.com/imagem.png" {...field} />
-                    </FormControl>
+                    <FormLabel>Imagem do Produto</FormLabel>
+                    <div className="flex items-center gap-4">
+                      {previewUrl && <Image src={previewUrl} alt="Pré-visualização" width={64} height={64} className="rounded-md object-cover" />}
+                       <FormControl>
+                            <Input 
+                                type="file" 
+                                accept="image/*"
+                                onChange={(e) => onChange(e.target.files)}
+                                {...rest}
+                            />
+                        </FormControl>
+                    </div>
                     <FormMessage />
                 </FormItem>
             )}
         />
     </>
-  );
+    )
+  };
 
 
   return (
@@ -407,7 +461,10 @@ export default function ProductsPage() {
                         <DialogClose asChild>
                             <Button type="button" variant="outline" onClick={() => { setIsCreateModalOpen(false); setIsEditModalOpen(false); }}>Cancelar</Button>
                         </DialogClose>
-                        <Button type="submit">{editingProduct ? 'Salvar Alterações' : 'Salvar Produto'}</Button>
+                        <Button type="submit" disabled={isUploading}>
+                            {isUploading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            {isUploading ? 'Salvando...' : (editingProduct ? 'Salvar Alterações' : 'Salvar Produto')}
+                        </Button>
                     </DialogFooter>
                 </form>
             </Form>
