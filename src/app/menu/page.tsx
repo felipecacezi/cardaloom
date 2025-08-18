@@ -39,14 +39,20 @@ const products = [
     { id: 3, name: 'Pizza Quatro Queijos', price: 52.00, description: 'Molho de tomate, mussarela, provolone, parmesão e gorgonzola.', category: 'Pizzas Salgadas', image: 'https://placehold.co/600x400.png', addons: [{ id: 1, name: 'Borda Recheada Catupiry', price: 8.00 }, { id: 2, name: 'Borda Recheada Cheddar', price: 8.00 }], isVisible: true },
     { id: 4, name: 'Pizza Portuguesa', price: 50.00, description: 'Molho, mussarela, presunto, ovo, cebola, pimentão e azeitona.', category: 'Pizzas Salgadas', image: 'https://placehold.co/600x400.png', addons: [{id: 6, name: 'Ovo', price: 3.00}], isVisible: true },
     { id: 5, name: 'Pizza Frango com Catupiry', price: 51.00, description: 'Molho de tomate, frango desfiado coberto com Catupiry.', category: 'Pizzas Salgadas', image: 'https://placehold.co/600x400.png', addons: [], isVisible: true },
+    { id: 13, name: 'Pizza Pepperoni', price: 53.00, description: 'Molho de tomate, mussarela e fatias de pepperoni.', category: 'Pizzas Salgadas', image: 'https://placehold.co/600x400.png', addons: [{ id: 1, name: 'Borda Recheada Catupiry', price: 8.00 }], isVisible: true },
+    { id: 14, name: 'Pizza Vegetariana', price: 49.00, description: 'Molho de tomate, mussarela, brócolis, palmito, champignon e tomate.', category: 'Pizzas Salgadas', image: 'https://placehold.co/600x400.png', addons: [], isVisible: true },
     { id: 6, name: 'Pizza de Chocolate com Morango', price: 42.00, description: 'Deliciosa pizza doce com chocolate ao leite e morangos frescos.', category: 'Pizzas Doces', image: 'https://placehold.co/600x400.png', addons: [], isVisible: true },
     { id: 7, name: 'Pizza Romeu e Julieta', price: 40.00, description: 'Mussarela derretida com uma generosa camada de goiabada.', category: 'Pizzas Doces', image: 'https://placehold.co/600x400.png', addons: [], isVisible: true },
+    { id: 15, name: 'Pizza Banana com Canela', price: 38.00, description: 'Banana fatiada com açúcar e canela sobre uma base de mussarela.', category: 'Pizzas Doces', image: 'https://placehold.co/600x400.png', addons: [], isVisible: true },
     { id: 8, name: 'Coca-Cola 2L', price: 10.00, description: 'Refrigerante gelado para acompanhar sua pizza.', category: 'Bebidas', image: 'https://placehold.co/600x400.png', addons: [], isVisible: true },
     { id: 9, name: 'Guaraná Antarctica 2L', price: 10.00, description: 'O sabor original do Brasil, bem gelado.', category: 'Bebidas', image: 'https://placehold.co/600x400.png', addons: [], isVisible: true },
     { id: 10, name: 'Água Mineral sem Gás 500ml', price: 4.00, description: 'Para se manter hidratado.', category: 'Bebidas', image: 'https://placehold.co/600x400.png', addons: [], isVisible: true },
+    { id: 16, name: 'Suco de Laranja Natural 500ml', price: 8.00, description: 'Feito com laranjas frescas espremidas na hora.', category: 'Bebidas', image: 'https://placehold.co/600x400.png', addons: [], isVisible: true },
     { id: 11, name: 'Pudim de Leite Condensado', price: 8.00, description: 'A sobremesa clássica que todo mundo ama.', category: 'Sobremesas', image: 'https://placehold.co/600x400.png', addons: [], isVisible: true },
     { id: 12, name: 'Mousse de Maracujá', price: 9.00, description: 'Azedinho e doce na medida certa.', category: 'Sobremesas', image: 'https://placehold.co/600x400.png', addons: [], isVisible: true },
+    { id: 17, name: 'Torta Holandesa (fatia)', price: 12.00, description: 'Uma fatia generosa da famosa torta com base de biscoito e creme.', category: 'Sobremesas', image: 'https://placehold.co/600x400.png', addons: [], isVisible: true },
 ];
+
 
 type Addon = { id: number; name: string; price: number; };
 type Product = typeof products[0];
@@ -108,13 +114,22 @@ export default function MenuPage() {
     return (
     <Dialog open={isProductDialogOpen} onOpenChange={setIsProductDialogOpen}>
         <div className="min-h-screen bg-muted/20">
-            <header className="bg-background shadow-md sticky top-0 z-40">
-                <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-                    <h1 className="text-3xl font-bold text-primary">{restaurant.name}</h1>
-                    {restaurant.isOpen ? (
-                        <Badge variant="default" className="bg-green-500 hover:bg-green-600">Aberto</Badge>
+            <header className="relative h-48 md:h-64 w-full">
+                <Image
+                    src="https://placehold.co/1200x400.png"
+                    alt="Banner do Restaurante"
+                    layout="fill"
+                    objectFit="cover"
+                    className="z-0"
+                    data-ai-hint="restaurant banner"
+                />
+                <div className="absolute inset-0 bg-black/50 z-10" />
+                <div className="container mx-auto px-4 absolute inset-0 z-20 flex flex-col justify-center items-center text-center text-white">
+                    <h1 className="text-4xl md:text-6xl font-bold drop-shadow-lg">{restaurant.name}</h1>
+                     {restaurant.isOpen ? (
+                        <Badge variant="default" className="bg-green-500 hover:bg-green-600 mt-2 text-base">Aberto</Badge>
                     ) : (
-                        <Badge variant="destructive">Fechado</Badge>
+                        <Badge variant="destructive" className="mt-2 text-base">Fechado</Badge>
                     )}
                 </div>
             </header>
@@ -252,7 +267,3 @@ export default function MenuPage() {
     </Dialog>
     );
 }
-
-    
-
-    
