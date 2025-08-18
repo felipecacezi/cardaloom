@@ -29,7 +29,7 @@ type ComboboxProps = {
     value: string;
 }
 
-export function Combobox({ options, placeholder, searchPlaceholder, notFoundText, onSelect, value }: ComboboxProps) {
+export function Combobox({ options, placeholder, searchPlaceholder, notFoundText, onSelect }: ComboboxProps) {
   const [open, setOpen] = React.useState(false)
 
   return (
