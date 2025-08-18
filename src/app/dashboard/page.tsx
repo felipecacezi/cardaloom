@@ -14,14 +14,12 @@ export default function DashboardPage() {
         <div className="flex-1">
             <h1 className="text-lg font-semibold md:text-2xl">Dashboard</h1>
         </div>
-        <Link href="/menu" passHref>
-            <Button asChild>
-                <Link href="/menu" target="_blank">
-                    <Eye className="mr-2" />
-                    Ver Cardápio
-                </Link>
-            </Button>
-        </Link>
+        <Button asChild>
+            <Link href="/menu" target="_blank">
+                <Eye className="mr-2" />
+                Ver Cardápio
+            </Link>
+        </Button>
       </header>
       <main className="flex-1 p-6">
         <div className="border-2 border-dashed border-muted rounded-lg h-full p-8 flex items-center justify-center">
