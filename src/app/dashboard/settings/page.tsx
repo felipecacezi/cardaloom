@@ -40,8 +40,6 @@ const operatingHoursSchema = z.object({
     phone: z.string().optional(),
     whatsapp: z.string().optional(),
     delivery: z.boolean().default(false),
-    receiveOrdersByWhatsapp: z.boolean().default(false),
-    whatsappOrderNumber: z.string().optional(),
     hours: z.object(
         Object.fromEntries(
             weekDays.map(day => [
@@ -95,8 +93,6 @@ export default function SettingsPage() {
             phone: '(11) 98765-4321',
             whatsapp: '(11) 98765-4321',
             delivery: true,
-            receiveOrdersByWhatsapp: false,
-            whatsappOrderNumber: '',
             hours: {
                 monday: { isOpen: true, openTime: '18:00', closeTime: '23:00' },
                 tuesday: { isOpen: true, openTime: '18:00', closeTime: '23:00' },
@@ -477,53 +473,6 @@ export default function SettingsPage() {
                                 </FormItem>
                             )}
                         />
-                        <Separator />
-                         <div>
-                            <h3 className="text-lg font-medium">Pedidos pelo WhatsApp</h3>
-                            <p className="text-sm text-muted-foreground">
-                                Permita que seus clientes enviem pedidos diretamente para o seu WhatsApp.
-                            </p>
-                        </div>
-                        <FormField
-                            control={operatingHoursForm.control}
-                            name="receiveOrdersByWhatsapp"
-                            render={({ field }) => (
-                                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                                <div className="space-y-0.5">
-                                    <FormLabel className="text-base">
-                                        Ativar pedidos pelo WhatsApp?
-                                    </FormLabel>
-                                    <FormDescription>
-                                        Ao ativar, um botão aparecerá no seu cardápio para os clientes enviarem o pedido.
-                                    </FormDescription>
-                                </div>
-                                <FormControl>
-                                    <Switch
-                                    checked={field.value}
-                                    onCheckedChange={field.onChange}
-                                    />
-                                </FormControl>
-                                </FormItem>
-                            )}
-                        />
-                        {operatingHoursForm.watch('receiveOrdersByWhatsapp') && (
-                            <FormField
-                                control={operatingHoursForm.control}
-                                name="whatsappOrderNumber"
-                                render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Número para Pedidos</FormLabel>
-                                    <FormControl>
-                                        <Input placeholder="(99) 99999-9999" {...field} />
-                                    </FormControl>
-                                    <FormDescription>
-                                        Este número será usado exclusivamente para receber os pedidos.
-                                    </FormDescription>
-                                    <FormMessage />
-                                </FormItem>
-                                )}
-                            />
-                        )}
                         <Button type="submit">Salvar Horários e Contatos</Button>
                     </form>
                 </Form>
