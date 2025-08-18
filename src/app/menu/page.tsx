@@ -36,7 +36,7 @@ const restaurant = {
     saturday: { isOpen: true, openTime: '12:00', closeTime: '00:00' },
     sunday: { isOpen: false, openTime: '', closeTime: '' },
   },
-   whatsappNumber: '5511912345678', // Example number
+   whatsappNumber: '5519992440916', // User provided number
 };
 
 const weekDayLabels: Record<string, string> = {
@@ -426,3 +426,5 @@ export default function MenuPage() {
     </Dialog>
     );
 }
+
+    
