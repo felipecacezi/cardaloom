@@ -35,7 +35,7 @@ export default function DashboardLayout({
         <SidebarContent>
           <SidebarMenu>
             <SidebarMenuItem>
-                <Link href="/dashboard" passHref>
+                <Link href="/dashboard">
                     <SidebarMenuButton asChild isActive={pathname === '/dashboard'} tooltip="Início">
                         <span>
                             <Home />
@@ -45,17 +45,17 @@ export default function DashboardLayout({
                 </Link>
             </SidebarMenuItem>
             <SidebarMenuItem>
-                <Link href="#" passHref>
-                    <SidebarMenuButton asChild tooltip="Meu Cardápio">
+                <Link href="/dashboard/products">
+                    <SidebarMenuButton asChild isActive={pathname === '/dashboard/products'} tooltip="Produtos">
                         <span>
                             <Utensils />
-                            Meu Cardápio
+                            Produtos
                         </span>
                     </SidebarMenuButton>
                 </Link>
             </SidebarMenuItem>
             <SidebarMenuItem>
-                 <Link href="/dashboard/categories" passHref>
+                 <Link href="/dashboard/categories">
                     <SidebarMenuButton asChild isActive={pathname === '/dashboard/categories'} tooltip="Categorias">
                         <span>
                             <Bookmark />
@@ -65,7 +65,7 @@ export default function DashboardLayout({
                  </Link>
             </SidebarMenuItem>
             <SidebarMenuItem>
-                 <Link href="/dashboard/addons" passHref>
+                 <Link href="/dashboard/addons">
                     <SidebarMenuButton asChild isActive={pathname === '/dashboard/addons'} tooltip="Adicionais">
                         <span>
                             <PlusSquare />
@@ -75,7 +75,7 @@ export default function DashboardLayout({
                  </Link>
             </SidebarMenuItem>
             <SidebarMenuItem>
-                <Link href="#" passHref>
+                <Link href="#">
                     <SidebarMenuButton asChild tooltip="Configurações">
                         <span>
                             <Settings />
@@ -89,7 +89,7 @@ export default function DashboardLayout({
         <SidebarFooter>
             <SidebarMenu>
                  <SidebarMenuItem>
-                    <Link href="/" passHref>
+                    <Link href="/">
                         <SidebarMenuButton asChild tooltip="Sair">
                             <span>
                                 <LogOut />
@@ -107,3 +107,5 @@ export default function DashboardLayout({
     </SidebarProvider>
   );
 }
+
+    
