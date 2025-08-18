@@ -59,11 +59,14 @@ export default function MenuPage() {
     const [quantity, setQuantity] = useState(1);
     const [selectedAddons, setSelectedAddons] = useState<Addon[]>([]);
     const [cart, setCart] = useState<CartItem[]>([]);
+    const [isProductDialogOpen, setIsProductDialogOpen] = useState(false);
+    const [isCartDialogOpen, setIsCartDialogOpen] = useState(false);
 
     const handleProductClick = (product: Product) => {
         setSelectedProduct(product);
         setQuantity(1);
         setSelectedAddons([]);
+        setIsProductDialogOpen(true);
     };
 
     const handleAddonToggle = (addon: Addon, isChecked: boolean) => {
@@ -89,13 +92,13 @@ export default function MenuPage() {
             totalPrice: calculateItemPrice(),
         };
         setCart(prev => [...prev, cartItem]);
-        setSelectedProduct(null);
+        setIsProductDialogOpen(false);
     };
     
     const totalCartPrice = cart.reduce((acc, item) => acc + item.totalPrice, 0);
 
     return (
-    <>
+    <Dialog open={isProductDialogOpen} onOpenChange={setIsProductDialogOpen}>
         <div className="min-h-screen bg-muted/20">
             <header className="bg-background shadow-md sticky top-0 z-40">
                 <div className="container mx-auto px-4 py-4 flex justify-between items-center">
@@ -135,112 +138,111 @@ export default function MenuPage() {
             </main>
              {cart.length > 0 && (
                 <footer className="fixed bottom-0 left-0 right-0 bg-background border-t p-4 shadow-lg">
-                    <div className="container mx-auto flex justify-between items-center">
-                       <DialogTrigger asChild>
-                             <Button size="lg">
-                                <ShoppingCart className="mr-2" />
-                                Ver Carrinho ({cart.length})
-                            </Button>
-                        </DialogTrigger>
-                        <div className="text-right">
-                            <p className="text-muted-foreground">Total</p>
-                            <p className="text-2xl font-bold">{formatCurrency(totalCartPrice)}</p>
+                     <Dialog open={isCartDialogOpen} onOpenChange={setIsCartDialogOpen}>
+                        <div className="container mx-auto flex justify-between items-center">
+                        <DialogTrigger asChild>
+                                <Button size="lg">
+                                    <ShoppingCart className="mr-2" />
+                                    Ver Carrinho ({cart.length})
+                                </Button>
+                            </DialogTrigger>
+                            <div className="text-right">
+                                <p className="text-muted-foreground">Total</p>
+                                <p className="text-2xl font-bold">{formatCurrency(totalCartPrice)}</p>
+                            </div>
                         </div>
-                    </div>
+                        <DialogContent className="sm:max-w-lg">
+                            <DialogHeader>
+                                <DialogTitle>Seu Carrinho</DialogTitle>
+                            </DialogHeader>
+                            <div className="max-h-[60vh] overflow-y-auto p-1">
+                                {cart.map((item, index) => (
+                                    <div key={index} className="mb-4">
+                                        <div className="flex justify-between items-start">
+                                            <div>
+                                                <h4 className="font-semibold">{item.quantity}x {item.product.name}</h4>
+                                                {item.selectedAddons.length > 0 && (
+                                                    <ul className="text-sm text-muted-foreground list-disc pl-5">
+                                                        {item.selectedAddons.map(addon => <li key={addon.id}>{addon.name}</li>)}
+                                                    </ul>
+                                                )}
+                                            </div>
+                                            <p className="font-semibold">{formatCurrency(item.totalPrice)}</p>
+                                        </div>
+                                    <Separator className="my-2" />
+                                    </div>
+                                ))}
+                            </div>
+                            <DialogFooter className="flex-col !justify-start items-stretch gap-4">
+                                <div className="flex justify-between items-center text-xl font-bold">
+                                    <span>Total:</span>
+                                    <span>{formatCurrency(totalCartPrice)}</span>
+                                </div>
+                                <Button size="lg" className="w-full bg-green-500 hover:bg-green-600">
+                                    <ShoppingCart className="mr-2" />
+                                    Finalizar Pedido no WhatsApp
+                                </Button>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
                 </footer>
             )}
         </div>
 
-        <Dialog open={!!selectedProduct} onOpenChange={(isOpen) => !isOpen && setSelectedProduct(null)}>
-            <DialogContent className="sm:max-w-md">
-                {selectedProduct && (
-                <>
-                    <DialogHeader>
-                        <div className="relative h-48 w-full mb-4">
-                            <Image src={selectedProduct.image} alt={selectedProduct.name} layout="fill" objectFit="cover" className="rounded-t-lg" data-ai-hint="pizza food"/>
-                        </div>
-                        <DialogTitle className="text-2xl">{selectedProduct.name}</DialogTitle>
-                        <DialogDescription>{selectedProduct.description}</DialogDescription>
-                    </DialogHeader>
-                    
-                    {selectedProduct.addons.length > 0 && (
-                        <div className="my-4">
-                            <h4 className="font-semibold mb-2">Adicionais</h4>
-                            <div className="space-y-2">
-                                {selectedProduct.addons.map(addon => (
-                                    <div key={addon.id} className="flex items-center justify-between p-2 rounded-md border">
-                                        <div>
-                                            <Label htmlFor={`addon-${addon.id}`}>{addon.name}</Label>
-                                            <p className="text-sm text-primary">+{formatCurrency(addon.price)}</p>
-                                        </div>
-                                        <Checkbox 
-                                            id={`addon-${addon.id}`} 
-                                            onCheckedChange={(checked) => handleAddonToggle(addon, !!checked)}
-                                        />
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-
-                    <div className="flex items-center justify-between my-4">
-                        <h4 className="font-semibold">Quantidade</h4>
-                        <div className="flex items-center gap-2">
-                            <Button variant="outline" size="icon" onClick={() => setQuantity(q => Math.max(1, q - 1))}>
-                                <Minus className="h-4 w-4" />
-                            </Button>
-                            <span className="text-lg font-bold w-8 text-center">{quantity}</span>
-                            <Button variant="outline" size="icon" onClick={() => setQuantity(q => q + 1)}>
-                                <Plus className="h-4 w-4" />
-                            </Button>
-                        </div>
-                    </div>
-                    
-                    <DialogFooter>
-                        <Button className="w-full" size="lg" onClick={addToCart}>
-                            Adicionar ao carrinho - {formatCurrency(calculateItemPrice())}
-                        </Button>
-                    </DialogFooter>
-                </>
-                )}
-            </DialogContent>
-        </Dialog>
-        
-        <Dialog>
-             <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-md">
+            {selectedProduct && (
+            <>
                 <DialogHeader>
-                    <DialogTitle>Seu Carrinho</DialogTitle>
-                </DialogHeader>
-                 <div className="max-h-[60vh] overflow-y-auto p-1">
-                    {cart.map((item, index) => (
-                        <div key={index} className="mb-4">
-                            <div className="flex justify-between items-start">
-                                <div>
-                                    <h4 className="font-semibold">{item.quantity}x {item.product.name}</h4>
-                                    {item.selectedAddons.length > 0 && (
-                                        <ul className="text-sm text-muted-foreground list-disc pl-5">
-                                            {item.selectedAddons.map(addon => <li key={addon.id}>{addon.name}</li>)}
-                                        </ul>
-                                    )}
-                                </div>
-                                <p className="font-semibold">{formatCurrency(item.totalPrice)}</p>
-                            </div>
-                           <Separator className="my-2" />
-                        </div>
-                    ))}
-                 </div>
-                 <DialogFooter className="flex-col !justify-start items-stretch gap-4">
-                    <div className="flex justify-between items-center text-xl font-bold">
-                        <span>Total:</span>
-                        <span>{formatCurrency(totalCartPrice)}</span>
+                    <div className="relative h-48 w-full mb-4">
+                        <Image src={selectedProduct.image} alt={selectedProduct.name} layout="fill" objectFit="cover" className="rounded-t-lg" data-ai-hint="pizza food"/>
                     </div>
-                    <Button size="lg" className="w-full bg-green-500 hover:bg-green-600">
-                        <ShoppingCart className="mr-2" />
-                        Finalizar Pedido no WhatsApp
+                    <DialogTitle className="text-2xl">{selectedProduct.name}</DialogTitle>
+                    <DialogDescription>{selectedProduct.description}</DialogDescription>
+                </DialogHeader>
+                
+                {selectedProduct.addons.length > 0 && (
+                    <div className="my-4">
+                        <h4 className="font-semibold mb-2">Adicionais</h4>
+                        <div className="space-y-2">
+                            {selectedProduct.addons.map(addon => (
+                                <div key={addon.id} className="flex items-center justify-between p-2 rounded-md border">
+                                    <div>
+                                        <Label htmlFor={`addon-${addon.id}`}>{addon.name}</Label>
+                                        <p className="text-sm text-primary">+{formatCurrency(addon.price)}</p>
+                                    </div>
+                                    <Checkbox 
+                                        id={`addon-${addon.id}`} 
+                                        onCheckedChange={(checked) => handleAddonToggle(addon, !!checked)}
+                                    />
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                <div className="flex items-center justify-between my-4">
+                    <h4 className="font-semibold">Quantidade</h4>
+                    <div className="flex items-center gap-2">
+                        <Button variant="outline" size="icon" onClick={() => setQuantity(q => Math.max(1, q - 1))}>
+                            <Minus className="h-4 w-4" />
+                        </Button>
+                        <span className="text-lg font-bold w-8 text-center">{quantity}</span>
+                        <Button variant="outline" size="icon" onClick={() => setQuantity(q => q + 1)}>
+                            <Plus className="h-4 w-4" />
+                        </Button>
+                    </div>
+                </div>
+                
+                <DialogFooter>
+                    <Button className="w-full" size="lg" onClick={addToCart}>
+                        Adicionar ao carrinho - {formatCurrency(calculateItemPrice())}
                     </Button>
-                 </DialogFooter>
-             </DialogContent>
-        </Dialog>
-    </>
+                </DialogFooter>
+            </>
+            )}
+        </DialogContent>
+    </Dialog>
     );
 }
+
+    
