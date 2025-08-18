@@ -7,10 +7,12 @@ import { z } from 'zod';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { Separator } from '@/components/ui/separator';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Switch } from '@/components/ui/switch';
 
 const companyFormSchema = z.object({
   restaurantName: z.string().min(2, { message: 'O nome do restaurante é obrigatório.' }),
@@ -30,6 +32,26 @@ const addressFormSchema = z.object({
     city: z.string().min(2, { message: 'A cidade é obrigatória.' }),
     state: z.string().min(2, { message: 'O estado é obrigatório.' }),
     zipCode: z.string().min(8, { message: 'O CEP é obrigatório.' }),
+});
+
+const weekDays = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"] as const;
+
+const operatingHoursSchema = z.object({
+    phone: z.string().optional(),
+    whatsapp: z.string().optional(),
+    delivery: z.boolean().default(false),
+    hours: z.object(
+        Object.fromEntries(
+            weekDays.map(day => [
+                day,
+                z.object({
+                    isOpen: z.boolean().default(false),
+                    openTime: z.string().optional(),
+                    closeTime: z.string().optional(),
+                })
+            ])
+        ) as Record<(typeof weekDays)[number], z.ZodObject<{ isOpen: z.ZodBoolean, openTime: z.ZodOptional<z.ZodString>, closeTime: z.ZodOptional<z.ZodString> }>>
+    )
 });
 
 
@@ -64,6 +86,34 @@ export default function SettingsPage() {
             zipCode: '01234-567',
         },
     });
+    
+    const operatingHoursForm = useForm<z.infer<typeof operatingHoursSchema>>({
+        resolver: zodResolver(operatingHoursSchema),
+        defaultValues: {
+            phone: '(11) 98765-4321',
+            whatsapp: '(11) 98765-4321',
+            delivery: true,
+            hours: {
+                monday: { isOpen: true, openTime: '18:00', closeTime: '23:00' },
+                tuesday: { isOpen: true, openTime: '18:00', closeTime: '23:00' },
+                wednesday: { isOpen: true, openTime: '18:00', closeTime: '23:00' },
+                thursday: { isOpen: true, openTime: '18:00', closeTime: '23:00' },
+                friday: { isOpen: true, openTime: '18:00', closeTime: '00:00' },
+                saturday: { isOpen: true, openTime: '12:00', closeTime: '00:00' },
+                sunday: { isOpen: false, openTime: '', closeTime: '' },
+            }
+        }
+    });
+
+    const dayLabels: Record<(typeof weekDays)[number], string> = {
+        monday: 'Segunda-feira',
+        tuesday: 'Terça-feira',
+        wednesday: 'Quarta-feira',
+        thursday: 'Quinta-feira',
+        friday: 'Sexta-feira',
+        saturday: 'Sábado',
+        sunday: 'Domingo',
+    };
 
     function onCompanySubmit(values: z.infer<typeof companyFormSchema>) {
         console.log('Company Data:', values);
@@ -86,6 +136,14 @@ export default function SettingsPage() {
         toast({
             title: "Endereço Atualizado!",
             description: "O endereço do seu estabelecimento foi salvo com sucesso.",
+        });
+    }
+    
+    function onOperatingHoursSubmit(values: z.infer<typeof operatingHoursSchema>) {
+        console.log('Operating Hours Data:', values);
+        toast({
+            title: "Informações de Funcionamento Atualizadas!",
+            description: "Os horários e contatos foram salvos com sucesso.",
         });
     }
 
@@ -293,6 +351,129 @@ export default function SettingsPage() {
                             />
                         </div>
                         <Button type="submit">Salvar Endereço</Button>
+                    </form>
+                </Form>
+            </CardContent>
+        </Card>
+        
+        <Separator />
+
+        <Card>
+            <CardHeader>
+                <CardTitle>Funcionamento e Contato</CardTitle>
+                <CardDescription>Informe seus horários, contatos e se você faz entregas.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <Form {...operatingHoursForm}>
+                    <form onSubmit={operatingHoursForm.handleSubmit(onOperatingHoursSubmit)} className="space-y-6">
+                        <div className="space-y-4">
+                            {weekDays.map((day) => {
+                                const isOpen = operatingHoursForm.watch(`hours.${day}.isOpen`);
+                                return (
+                                <FormField
+                                    key={day}
+                                    control={operatingHoursForm.control}
+                                    name={`hours.${day}.isOpen`}
+                                    render={({ field }) => (
+                                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between rounded-lg border p-4">
+                                        <div className="space-y-0.5 mb-4 sm:mb-0">
+                                            <FormLabel className="text-base">{dayLabels[day]}</FormLabel>
+                                            <div className="flex items-center space-x-2">
+                                                <Checkbox
+                                                    checked={field.value}
+                                                    onCheckedChange={field.onChange}
+                                                    id={`is-open-${day}`}
+                                                />
+                                                <label
+                                                    htmlFor={`is-open-${day}`}
+                                                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                                                >
+                                                    Aberto
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                             <FormField
+                                                control={operatingHoursForm.control}
+                                                name={`hours.${day}.openTime`}
+                                                render={({ field }) => (
+                                                    <FormItem>
+                                                        <FormControl>
+                                                            <Input type="time" {...field} disabled={!isOpen} />
+                                                        </FormControl>
+                                                    </FormItem>
+                                                )}
+                                            />
+                                            <span>até</span>
+                                            <FormField
+                                                control={operatingHoursForm.control}
+                                                name={`hours.${day}.closeTime`}
+                                                render={({ field }) => (
+                                                    <FormItem>
+                                                        <FormControl>
+                                                           <Input type="time" {...field} disabled={!isOpen} />
+                                                        </FormControl>
+                                                    </FormItem>
+                                                )}
+                                            />
+                                        </div>
+                                    </div>
+                                    )}
+                                />
+                            )})}
+                        </div>
+                        <Separator />
+                        <div className="grid md:grid-cols-2 gap-4">
+                             <FormField
+                                control={operatingHoursForm.control}
+                                name="phone"
+                                render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Telefone para Contato</FormLabel>
+                                    <FormControl>
+                                        <Input placeholder="(99) 99999-9999" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                                )}
+                            />
+                             <FormField
+                                control={operatingHoursForm.control}
+                                name="whatsapp"
+                                render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>WhatsApp</FormLabel>
+                                    <FormControl>
+                                        <Input placeholder="(99) 99999-9999" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                                )}
+                            />
+                        </div>
+                         <FormField
+                            control={operatingHoursForm.control}
+                            name="delivery"
+                            render={({ field }) => (
+                                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                                <div className="space-y-0.5">
+                                    <FormLabel className="text-base">
+                                        Faz entregas (Delivery)?
+                                    </FormLabel>
+                                    <FormDescription>
+                                        Marque esta opção se você oferece serviço de entrega.
+                                    </FormDescription>
+                                </div>
+                                <FormControl>
+                                    <Switch
+                                    checked={field.value}
+                                    onCheckedChange={field.onChange}
+                                    />
+                                </FormControl>
+                                </FormItem>
+                            )}
+                        />
+                        <Button type="submit">Salvar Horários e Contatos</Button>
                     </form>
                 </Form>
             </CardContent>
