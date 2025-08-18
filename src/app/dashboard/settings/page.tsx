@@ -54,6 +54,11 @@ const operatingHoursSchema = z.object({
     )
 });
 
+const ordersFormSchema = z.object({
+  receiveOrdersByWhatsapp: z.boolean().default(false),
+  whatsappOrderNumber: z.string().optional(),
+});
+
 
 export default function SettingsPage() {
     const { toast } = useToast();
@@ -105,6 +110,14 @@ export default function SettingsPage() {
         }
     });
 
+     const ordersForm = useForm<z.infer<typeof ordersFormSchema>>({
+        resolver: zodResolver(ordersFormSchema),
+        defaultValues: {
+            receiveOrdersByWhatsapp: true,
+            whatsappOrderNumber: '(11) 91234-5678',
+        },
+    });
+
     const dayLabels: Record<(typeof weekDays)[number], string> = {
         monday: 'Segunda-feira',
         tuesday: 'Terça-feira',
@@ -146,6 +159,15 @@ export default function SettingsPage() {
             description: "Os horários e contatos foram salvos com sucesso.",
         });
     }
+
+    function onOrdersSubmit(values: z.infer<typeof ordersFormSchema>) {
+        console.log('Orders Data:', values);
+        toast({
+            title: "Configurações de Pedidos Atualizadas!",
+            description: "As informações de pedidos foram salvas com sucesso.",
+        });
+    }
+
 
     return (
     <>
@@ -478,6 +500,65 @@ export default function SettingsPage() {
                 </Form>
             </CardContent>
         </Card>
+
+        <Separator />
+
+        <Card>
+            <CardHeader>
+                <CardTitle>Pedidos pelo WhatsApp</CardTitle>
+                <CardDescription>
+                    Permita que seus clientes enviem pedidos diretamente para o seu WhatsApp.
+                </CardDescription>
+            </CardHeader>
+            <CardContent>
+                <Form {...ordersForm}>
+                    <form onSubmit={ordersForm.handleSubmit(onOrdersSubmit)} className="space-y-6">
+                       <FormField
+                            control={ordersForm.control}
+                            name="receiveOrdersByWhatsapp"
+                            render={({ field }) => (
+                                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                                <div className="space-y-0.5">
+                                    <FormLabel className="text-base">
+                                        Ativar pedidos pelo WhatsApp?
+                                    </FormLabel>
+                                    <FormDescription>
+                                        Ao ativar, um botão aparecerá no seu cardápio para os clientes enviarem o pedido.
+                                    </FormDescription>
+                                </div>
+                                <FormControl>
+                                    <Switch
+                                    checked={field.value}
+                                    onCheckedChange={field.onChange}
+                                    />
+                                </FormControl>
+                                </FormItem>
+                            )}
+                        />
+                        {ordersForm.watch('receiveOrdersByWhatsapp') && (
+                            <FormField
+                                control={ordersForm.control}
+                                name="whatsappOrderNumber"
+                                render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Número para Pedidos</FormLabel>
+                                    <FormControl>
+                                        <Input placeholder="(99) 99999-9999" {...field} />
+                                    </FormControl>
+                                    <FormDescription>
+                                        Este número será usado exclusivamente para receber os pedidos.
+                                    </FormDescription>
+                                    <FormMessage />
+                                </FormItem>
+                                )}
+                            />
+                        )}
+                        <Button type="submit">Salvar Configurações de Pedidos</Button>
+                    </form>
+                </Form>
+            </CardContent>
+        </Card>
+
       </main>
     </>
     );
