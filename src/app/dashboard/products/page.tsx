@@ -10,7 +10,7 @@ import Image from 'next/image';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { PlusCircle, MoreVertical, Edit, Trash2, Search, Loader2 } from 'lucide-react';
+import { PlusCircle, MoreVertical, Edit, Trash2, Search, Loader2, X } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -52,8 +52,8 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
+import { Combobox } from '@/components/ui/combobox';
 
 
 type Addon = {
@@ -262,6 +262,14 @@ export default function ProductsPage() {
     } else if (imageField && imageField[0]) {
         previewUrl = URL.createObjectURL(imageField[0]);
     }
+    
+    const selectedAddonIds = form.watch('addonIds') || [];
+    const selectedAddons = addonsData.filter(addon => selectedAddonIds.includes(addon.id));
+
+    const addonOptions = addonsData.map(addon => ({
+        value: addon.id.toString(),
+        label: `${addon.name} (${formatCurrency(addon.price)})`,
+    }));
 
     return (
     <>
@@ -354,47 +362,41 @@ export default function ProductsPage() {
             <h3 className="text-lg font-medium">Opcionais do Produto</h3>
             <p className="text-sm text-muted-foreground">Selecione os adicionais disponíveis para este produto.</p>
         </div>
-         <FormField
+        <FormField
             control={form.control}
             name="addonIds"
-            render={() => (
-                <FormItem>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-2">
-                        {addonsData.map((addon) => (
-                            <FormField
-                                key={addon.id}
-                                control={form.control}
-                                name="addonIds"
-                                render={({ field }) => {
-                                    return (
-                                        <FormItem
-                                            key={addon.id}
-                                            className="flex flex-row items-start space-x-3 space-y-0"
-                                        >
-                                            <FormControl>
-                                                <Checkbox
-                                                    checked={field.value?.includes(addon.id)}
-                                                    onCheckedChange={(checked) => {
-                                                        return checked
-                                                            ? field.onChange([...(field.value || []), addon.id])
-                                                            : field.onChange(
-                                                                field.value?.filter(
-                                                                    (value) => value !== addon.id
-                                                                )
-                                                            )
-                                                    }}
-                                                />
-                                            </FormControl>
-                                            <FormLabel className="font-normal">
-                                                {addon.name} ({formatCurrency(addon.price)})
-                                            </FormLabel>
-                                        </FormItem>
-                                    )
-                                }}
-                            />
+            render={({ field }) => (
+                <FormItem className="flex flex-col">
+                    <FormLabel>Adicionais</FormLabel>
+                    <Combobox
+                        options={addonOptions}
+                        placeholder="Selecione um adicional..."
+                        searchPlaceholder="Pesquisar adicional..."
+                        notFoundText="Nenhum adicional encontrado."
+                        onSelect={(value) => {
+                            const addonId = parseInt(value, 10);
+                            if (!field.value?.includes(addonId)) {
+                                field.onChange([...(field.value || []), addonId]);
+                            }
+                        }}
+                    />
+                    <FormMessage />
+                     <div className="flex flex-wrap gap-2 mt-2">
+                        {selectedAddons.map((addon) => (
+                            <Badge key={addon.id} variant="secondary" className="flex items-center gap-1">
+                                {addon.name}
+                                <button
+                                    type="button"
+                                    className="rounded-full hover:bg-muted-foreground/20 p-0.5"
+                                    onClick={() => {
+                                        field.onChange(field.value?.filter((id) => id !== addon.id));
+                                    }}
+                                >
+                                    <X className="h-3 w-3" />
+                                </button>
+                            </Badge>
                         ))}
                     </div>
-                    <FormMessage />
                 </FormItem>
             )}
         />
