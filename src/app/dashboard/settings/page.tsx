@@ -39,7 +39,6 @@ const weekDays = ["monday", "tuesday", "wednesday", "thursday", "friday", "satur
 const operatingHoursSchema = z.object({
     phone: z.string().optional(),
     whatsapp: z.string().optional(),
-    delivery: z.boolean().default(false),
     hours: z.object(
         Object.fromEntries(
             weekDays.map(day => [
@@ -55,6 +54,7 @@ const operatingHoursSchema = z.object({
 });
 
 const ordersFormSchema = z.object({
+  delivery: z.boolean().default(false),
   receiveOrdersByWhatsapp: z.boolean().default(false),
   whatsappOrderNumber: z.string().optional(),
 });
@@ -97,7 +97,6 @@ export default function SettingsPage() {
         defaultValues: {
             phone: '(11) 98765-4321',
             whatsapp: '(11) 98765-4321',
-            delivery: true,
             hours: {
                 monday: { isOpen: true, openTime: '18:00', closeTime: '23:00' },
                 tuesday: { isOpen: true, openTime: '18:00', closeTime: '23:00' },
@@ -113,6 +112,7 @@ export default function SettingsPage() {
      const ordersForm = useForm<z.infer<typeof ordersFormSchema>>({
         resolver: zodResolver(ordersFormSchema),
         defaultValues: {
+            delivery: true,
             receiveOrdersByWhatsapp: true,
             whatsappOrderNumber: '(11) 91234-5678',
         },
@@ -383,7 +383,7 @@ export default function SettingsPage() {
         <Card>
             <CardHeader>
                 <CardTitle>Funcionamento e Contato</CardTitle>
-                <CardDescription>Informe seus horários, contatos e se você faz entregas.</CardDescription>
+                <CardDescription>Informe seus horários e contatos.</CardDescription>
             </CardHeader>
             <CardContent>
                 <Form {...operatingHoursForm}>
@@ -473,8 +473,26 @@ export default function SettingsPage() {
                                 )}
                             />
                         </div>
-                         <FormField
-                            control={operatingHoursForm.control}
+                        <Button type="submit">Salvar Horários e Contatos</Button>
+                    </form>
+                </Form>
+            </CardContent>
+        </Card>
+
+        <Separator />
+
+        <Card>
+            <CardHeader>
+                <CardTitle>Pedidos e Entregas</CardTitle>
+                <CardDescription>
+                    Gerencie o serviço de delivery e de pedidos pelo WhatsApp.
+                </CardDescription>
+            </CardHeader>
+            <CardContent>
+                <Form {...ordersForm}>
+                    <form onSubmit={ordersForm.handleSubmit(onOrdersSubmit)} className="space-y-6">
+                       <FormField
+                            control={ordersForm.control}
                             name="delivery"
                             render={({ field }) => (
                                 <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
@@ -495,25 +513,7 @@ export default function SettingsPage() {
                                 </FormItem>
                             )}
                         />
-                        <Button type="submit">Salvar Horários e Contatos</Button>
-                    </form>
-                </Form>
-            </CardContent>
-        </Card>
-
-        <Separator />
-
-        <Card>
-            <CardHeader>
-                <CardTitle>Pedidos pelo WhatsApp</CardTitle>
-                <CardDescription>
-                    Permita que seus clientes enviem pedidos diretamente para o seu WhatsApp.
-                </CardDescription>
-            </CardHeader>
-            <CardContent>
-                <Form {...ordersForm}>
-                    <form onSubmit={ordersForm.handleSubmit(onOrdersSubmit)} className="space-y-6">
-                       <FormField
+                        <FormField
                             control={ordersForm.control}
                             name="receiveOrdersByWhatsapp"
                             render={({ field }) => (
@@ -541,7 +541,7 @@ export default function SettingsPage() {
                                 name="whatsappOrderNumber"
                                 render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Número para Pedidos</FormLabel>
+                                    <FormLabel>Número do WhatsApp para Pedidos</FormLabel>
                                     <FormControl>
                                         <Input placeholder="(99) 99999-9999" {...field} />
                                     </FormControl>
@@ -563,3 +563,5 @@ export default function SettingsPage() {
     </>
     );
 }
+
+    
