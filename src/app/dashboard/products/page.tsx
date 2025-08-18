@@ -10,7 +10,7 @@ import Image from 'next/image';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { PlusCircle, MoreVertical, Edit, Trash2, Search, Sparkles, Loader2 } from 'lucide-react';
+import { PlusCircle, MoreVertical, Edit, Trash2, Search } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -50,7 +50,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
-import { suggestProductDescription, SuggestProductDescriptionInput } from '@/ai/flows/suggest-product-descriptions';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
@@ -99,7 +98,6 @@ export default function ProductsPage() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [deletingProduct, setDeletingProduct] = useState<Product | null>(null);
-  const [isGenerating, setIsGenerating] = useState(false);
 
   const itemsPerPage = 5;
   const { toast } = useToast();
@@ -118,6 +116,8 @@ export default function ProductsPage() {
         category: editingProduct.category,
         image: editingProduct.image,
       });
+    } else {
+        form.reset({ name: '', price: 0, description: '', category: '', image: '' });
     }
   }, [editingProduct, form]);
 
@@ -125,40 +125,6 @@ export default function ProductsPage() {
     setSearchQuery(event.target.value);
     setCurrentPage(1);
   };
-
-  const handleSuggestDescription = async () => {
-      const { name, category, description } = form.getValues();
-      if (!name || !category) {
-        toast({
-            variant: "destructive",
-            title: "Ops!",
-            description: "Preencha o nome e a categoria para sugerir uma descrição.",
-        });
-        return;
-      }
-      setIsGenerating(true);
-      try {
-        const result = await suggestProductDescription({
-            productName: name,
-            productCategory: category,
-            ingredients: '', 
-            existingDescription: description,
-        });
-        form.setValue('description', result.description, { shouldValidate: true });
-        toast({
-            title: "Descrição Sugerida!",
-            description: "Uma nova descrição foi gerada para você.",
-        });
-      } catch (error) {
-        toast({
-            variant: "destructive",
-            title: "Erro ao Sugerir",
-            description: "Não foi possível gerar uma descrição. Tente novamente.",
-        });
-      } finally {
-        setIsGenerating(false);
-      }
-  }
 
   const filteredProducts = products.filter(product =>
     product.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -175,7 +141,7 @@ export default function ProductsPage() {
   function onSubmit(values: z.infer<typeof formSchema>) {
      if (editingProduct) {
         setProducts(prev => prev.map(p =>
-            p.id === editingProduct.id ? { ...editingProduct, ...values } : p
+            p.id === editingProduct.id ? { ...editingProduct, ...values, image: values.image || 'https://placehold.co/100x100.png' } : p
         ));
         toast({
             title: "Produto Atualizado!",
@@ -203,6 +169,11 @@ export default function ProductsPage() {
     setEditingProduct(product);
     setIsEditModalOpen(true);
   };
+  
+  const handleCreateClick = () => {
+    setEditingProduct(null);
+    setIsCreateModalOpen(true);
+  }
 
   const confirmDelete = () => {
     if (!deletingProduct) return;
@@ -275,13 +246,7 @@ export default function ProductsPage() {
             name="description"
             render={({ field }) => (
                 <FormItem>
-                    <FormLabel className="flex justify-between items-center">
-                        Descrição
-                        <Button type="button" size="sm" variant="outline" onClick={handleSuggestDescription} disabled={isGenerating}>
-                             {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
-                            Sugerir com IA
-                        </Button>
-                    </FormLabel>
+                    <FormLabel>Descrição</FormLabel>
                     <FormControl>
                         <Textarea rows={4} placeholder="Descreva o produto, seus ingredientes, etc." {...field} />
                     </FormControl>
@@ -314,33 +279,10 @@ export default function ProductsPage() {
           <h1 className="text-lg font-semibold md:text-2xl">Gerenciar Produtos</h1>
           <p className="text-sm text-muted-foreground">Adicione, edite ou remova os produtos do seu cardápio.</p>
         </div>
-        <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
-            <DialogTrigger asChild>
-                <Button>
-                    <PlusCircle className="mr-2" />
-                    Novo Produto
-                </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-xl">
-                <DialogHeader>
-                    <DialogTitle>Criar Novo Produto</DialogTitle>
-                    <DialogDescription>
-                        Preencha as informações abaixo para adicionar um novo produto.
-                    </DialogDescription>
-                </DialogHeader>
-                <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                        {renderFormFields()}
-                         <DialogFooter>
-                            <DialogClose asChild>
-                                <Button type="button" variant="outline">Cancelar</Button>
-                            </DialogClose>
-                            <Button type="submit">Salvar Produto</Button>
-                        </DialogFooter>
-                    </form>
-                </Form>
-            </DialogContent>
-        </Dialog>
+        <Button onClick={handleCreateClick}>
+            <PlusCircle className="mr-2" />
+            Novo Produto
+        </Button>
       </header>
       <main className="flex-1 p-6">
        <AlertDialog open={!!deletingProduct} onOpenChange={(isOpen) => !isOpen && setDeletingProduct(null)}>
@@ -416,7 +358,7 @@ export default function ProductsPage() {
               Mostrando {Math.min(indexOfFirstItem + 1, filteredProducts.length)}-{Math.min(indexOfLastItem, filteredProducts.length)} de {filteredProducts.length} produtos.
             </span>
             <div className="flex gap-2">
-              <Button
+              <Button 
                 variant="outline"
                 size="sm"
                 onClick={() => paginate(currentPage - 1)}
@@ -424,7 +366,7 @@ export default function ProductsPage() {
               >
                 Anterior
               </Button>
-              <Button
+              <Button 
                 variant="outline"
                 size="sm"
                 onClick={() => paginate(currentPage + 1)}
@@ -450,29 +392,27 @@ export default function ProductsPage() {
         </AlertDialogContent>
         </AlertDialog>
       </main>
-       <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
-            <DialogContent className="sm:max-w-xl">
-                <DialogHeader>
-                    <DialogTitle>Editar Produto</DialogTitle>
-                    <DialogDescription>
-                        Altere as informações do produto selecionado.
-                    </DialogDescription>
-                </DialogHeader>
-                <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                        {renderFormFields()}
-                         <DialogFooter>
-                            <DialogClose asChild>
-                                <Button type="button" variant="outline" onClick={() => setIsEditModalOpen(false)}>Cancelar</Button>
-                            </DialogClose>
-                            <Button type="submit">Salvar Alterações</Button>
-                        </DialogFooter>
-                    </form>
-                </Form>
-            </DialogContent>
-        </Dialog>
+      <Dialog open={isCreateModalOpen || isEditModalOpen} onOpenChange={isEditModalOpen ? setIsEditModalOpen : setIsCreateModalOpen}>
+        <DialogContent className="sm:max-w-xl">
+            <DialogHeader>
+                <DialogTitle>{editingProduct ? 'Editar Produto' : 'Criar Novo Produto'}</DialogTitle>
+                <DialogDescription>
+                    {editingProduct ? 'Altere as informações do produto selecionado.' : 'Preencha as informações abaixo para adicionar um novo produto.'}
+                </DialogDescription>
+            </DialogHeader>
+            <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                    {renderFormFields()}
+                     <DialogFooter>
+                        <DialogClose asChild>
+                            <Button type="button" variant="outline" onClick={() => { setIsCreateModalOpen(false); setIsEditModalOpen(false); }}>Cancelar</Button>
+                        </DialogClose>
+                        <Button type="submit">{editingProduct ? 'Salvar Alterações' : 'Salvar Produto'}</Button>
+                    </DialogFooter>
+                </form>
+            </Form>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
-
-    
