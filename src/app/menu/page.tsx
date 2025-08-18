@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -94,6 +94,8 @@ export default function MenuPage() {
     const [cart, setCart] = useState<CartItem[]>([]);
     const [isProductDialogOpen, setIsProductDialogOpen] = useState(false);
     const [isCartDialogOpen, setIsCartDialogOpen] = useState(false);
+    const [isOperatingHoursOpen, setIsOperatingHoursOpen] = useState(false);
+
 
     const handleProductClick = (product: Product) => {
         setSelectedProduct(product);
@@ -137,7 +139,7 @@ export default function MenuPage() {
                 <Image
                     src="https://placehold.co/1200x400.png"
                     alt="Banner do Restaurante"
-                    layout="fill"
+                    fill
                     objectFit="cover"
                     className="z-0"
                     data-ai-hint="restaurant banner"
@@ -151,7 +153,7 @@ export default function MenuPage() {
                         ) : (
                             <Badge variant="destructive" className="text-base">Fechado</Badge>
                         )}
-                         <Dialog>
+                         <Dialog open={isOperatingHoursOpen} onOpenChange={setIsOperatingHoursOpen}>
                             <DialogTrigger asChild>
                                 <Button variant="outline" size="sm" className="bg-transparent text-white border-white hover:bg-white hover:text-black">
                                     <Clock className="mr-2 h-4 w-4" />
@@ -184,36 +186,39 @@ export default function MenuPage() {
                         <h2 className="text-3xl font-bold tracking-tight mb-6">{category.name}</h2>
                         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                             {products.filter(p => p.category === category.name && p.isVisible).map(product => (
-                                <DialogTrigger key={product.id} asChild>
-                                    <Card onClick={() => handleProductClick(product)} className="cursor-pointer hover:shadow-lg transition-shadow duration-300 flex flex-col">
-                                        <CardHeader className="p-0">
-                                            <div className="relative h-48 w-full">
-                                                <Image src={product.image} alt={product.name} layout="fill" objectFit="cover" className="rounded-t-lg" data-ai-hint="pizza food" />
-                                            </div>
-                                        </CardHeader>
-                                        <CardContent className="p-4 flex-grow flex flex-col">
-                                            <h3 className="text-xl font-semibold mb-2">{product.name}</h3>
-                                            <p className="text-muted-foreground text-sm mb-4 flex-grow">{product.description}</p>
+                                <Card key={product.id} onClick={() => handleProductClick(product)} className="cursor-pointer hover:shadow-lg transition-shadow duration-300 flex flex-col">
+                                    <CardHeader className="p-0">
+                                        <div className="relative h-48 w-full">
+                                            <Image src={product.image} alt={product.name} fill objectFit="cover" className="rounded-t-lg" data-ai-hint="pizza food" />
+                                        </div>
+                                    </CardHeader>
+                                    <CardContent className="p-4 flex-grow flex flex-col">
+                                        <h3 className="text-xl font-semibold mb-2">{product.name}</h3>
+                                        <p className="text-muted-foreground text-sm mb-4 flex-grow">{product.description}</p>
+                                        <div className="flex justify-between items-center">
                                             <p className="text-lg font-bold text-primary">{formatCurrency(product.price)}</p>
-                                        </CardContent>
-                                    </Card>
-                                </DialogTrigger>
+                                            <Button onClick={(e) => { e.stopPropagation(); handleProductClick(product); }}>
+                                                Adicionar
+                                            </Button>
+                                        </div>
+                                    </CardContent>
+                                </Card>
                             ))}
                         </div>
                     </section>
                 ))}
             </main>
              {cart.length > 0 && (
-                <footer className="fixed bottom-0 left-0 right-0 bg-background border-t p-4 shadow-lg">
+                <footer className="fixed bottom-0 left-0 right-0 bg-background border-t p-4 shadow-lg z-50">
                      <Dialog open={isCartDialogOpen} onOpenChange={setIsCartDialogOpen}>
                         <div className="container mx-auto flex justify-between items-center">
-                        <DialogTrigger asChild>
-                                <Button size="lg">
+                            <DialogTrigger asChild>
+                                <Button size="lg" className="w-full sm:w-auto">
                                     <ShoppingCart className="mr-2" />
                                     Ver Carrinho ({cart.length})
                                 </Button>
                             </DialogTrigger>
-                            <div className="text-right">
+                            <div className="text-right hidden sm:block">
                                 <p className="text-muted-foreground">Total</p>
                                 <p className="text-2xl font-bold">{formatCurrency(totalCartPrice)}</p>
                             </div>
@@ -222,7 +227,7 @@ export default function MenuPage() {
                             <DialogHeader>
                                 <DialogTitle>Seu Carrinho</DialogTitle>
                             </DialogHeader>
-                            <div className="max-h-[60vh] overflow-y-auto p-1">
+                            <div className="max-h-[60vh] overflow-y-auto p-1 -mr-4 pr-4">
                                 {cart.map((item, index) => (
                                     <div key={index} className="mb-4">
                                         <div className="flex justify-between items-start">
@@ -239,8 +244,9 @@ export default function MenuPage() {
                                     <Separator className="my-2" />
                                     </div>
                                 ))}
+                                {cart.length === 0 && <p className="text-muted-foreground text-center py-8">Seu carrinho está vazio.</p>}
                             </div>
-                            <DialogFooter className="flex-col !justify-start items-stretch gap-4">
+                            <DialogFooter className="flex-col !justify-start items-stretch gap-4 pt-4 border-t">
                                 <div className="flex justify-between items-center text-xl font-bold">
                                     <span>Total:</span>
                                     <span>{formatCurrency(totalCartPrice)}</span>
@@ -260,17 +266,17 @@ export default function MenuPage() {
             {selectedProduct && (
             <>
                 <DialogHeader>
-                    <div className="relative h-48 w-full mb-4">
-                        <Image src={selectedProduct.image} alt={selectedProduct.name} layout="fill" objectFit="cover" className="rounded-t-lg" data-ai-hint="pizza food"/>
+                    <div className="relative h-48 w-full -mx-6 -mt-6 mb-4">
+                        <Image src={selectedProduct.image} alt={selectedProduct.name} fill objectFit="cover" className="rounded-t-lg" data-ai-hint="pizza food"/>
                     </div>
                     <DialogTitle className="text-2xl">{selectedProduct.name}</DialogTitle>
                     <DialogDescription>{selectedProduct.description}</DialogDescription>
                 </DialogHeader>
                 
-                {selectedProduct.addons.length > 0 && (
+                {selectedProduct.addons && selectedProduct.addons.length > 0 && (
                     <div className="my-4">
                         <h4 className="font-semibold mb-2">Adicionais</h4>
-                        <div className="space-y-2">
+                        <div className="space-y-2 max-h-32 overflow-y-auto pr-2">
                             {selectedProduct.addons.map(addon => (
                                 <div key={addon.id} className="flex items-center justify-between p-2 rounded-md border">
                                     <div>
@@ -311,3 +317,5 @@ export default function MenuPage() {
     </Dialog>
     );
 }
+
+    
