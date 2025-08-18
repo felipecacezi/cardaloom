@@ -19,6 +19,9 @@ import {
 } from "@/components/ui/dialog";
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Input } from '@/components/ui/input';
 
 // Mock data (replace with actual data fetching)
 const restaurant = {
@@ -32,7 +35,8 @@ const restaurant = {
     friday: { isOpen: true, openTime: '18:00', closeTime: '00:00' },
     saturday: { isOpen: true, openTime: '12:00', closeTime: '00:00' },
     sunday: { isOpen: false, openTime: '', closeTime: '' },
-  }
+  },
+   whatsappNumber: '5511912345678', // Example number
 };
 
 const weekDayLabels: Record<string, string> = {
@@ -96,6 +100,11 @@ export default function MenuPage() {
     const [isCartDialogOpen, setIsCartDialogOpen] = useState(false);
     const [isOperatingHoursOpen, setIsOperatingHoursOpen] = useState(false);
 
+    // New state for delivery and payment
+    const [deliveryAddress, setDeliveryAddress] = useState('');
+    const [paymentMethod, setPaymentMethod] = useState<'card' | 'pix' | 'cash' | undefined>(undefined);
+    const [changeFor, setChangeFor] = useState('');
+
 
     const handleProductClick = (product: Product) => {
         setSelectedProduct(product);
@@ -131,6 +140,50 @@ export default function MenuPage() {
     };
     
     const totalCartPrice = cart.reduce((acc, item) => acc + item.totalPrice, 0);
+
+     const generateWhatsAppMessage = () => {
+        let message = `Olá, ${restaurant.name}! Gostaria de fazer o seguinte pedido:\n\n`;
+
+        cart.forEach(item => {
+            message += `*${item.quantity}x ${item.product.name}* (${formatCurrency(item.product.price)})\n`;
+            if (item.selectedAddons.length > 0) {
+                message += "  Adicionais:\n";
+                item.selectedAddons.forEach(addon => {
+                    message += `  - ${addon.name} (${formatCurrency(addon.price)})\n`;
+                });
+            }
+            message += `  Subtotal: *${formatCurrency(item.totalPrice)}*\n\n`;
+        });
+        
+        message += `*Total do Pedido: ${formatCurrency(totalCartPrice)}*\n\n`;
+        message += "--- DADOS PARA ENTREGA ---\n";
+        message += `*Endereço:* ${deliveryAddress}\n`;
+        
+        let paymentInfo = '';
+        if (paymentMethod === 'card') paymentInfo = 'Cartão';
+        if (paymentMethod === 'pix') paymentInfo = 'PIX';
+        if (paymentMethod === 'cash') {
+             paymentInfo = `Dinheiro`;
+             if(changeFor) {
+                paymentInfo += ` (Levar troco para ${changeFor})`;
+             } else {
+                paymentInfo += ` (Não precisa de troco)`;
+             }
+        }
+        message += `*Forma de Pagamento:* ${paymentInfo}\n`;
+
+        return encodeURIComponent(message);
+    };
+
+    const sendOrderToWhatsApp = () => {
+        if(!deliveryAddress || !paymentMethod) {
+            alert('Por favor, preencha o endereço e a forma de pagamento.');
+            return;
+        }
+        const message = generateWhatsAppMessage();
+        const whatsappUrl = `https://wa.me/${restaurant.whatsappNumber}?text=${message}`;
+        window.open(whatsappUrl, '_blank');
+    };
 
     return (
     <Dialog open={isProductDialogOpen} onOpenChange={setIsProductDialogOpen}>
@@ -227,31 +280,77 @@ export default function MenuPage() {
                             <DialogHeader>
                                 <DialogTitle>Seu Carrinho</DialogTitle>
                             </DialogHeader>
-                            <div className="max-h-[60vh] overflow-y-auto p-1 -mr-4 pr-4">
-                                {cart.map((item, index) => (
-                                    <div key={index} className="mb-4">
-                                        <div className="flex justify-between items-start">
-                                            <div>
-                                                <h4 className="font-semibold">{item.quantity}x {item.product.name}</h4>
-                                                {item.selectedAddons.length > 0 && (
-                                                    <ul className="text-sm text-muted-foreground list-disc pl-5">
-                                                        {item.selectedAddons.map(addon => <li key={addon.id}>{addon.name}</li>)}
-                                                    </ul>
-                                                )}
+                            <div className="max-h-[60vh] overflow-y-auto p-1 -mr-4 pr-4 space-y-4">
+                                <div>
+                                    {cart.map((item, index) => (
+                                        <div key={index} className="mb-2">
+                                            <div className="flex justify-between items-start">
+                                                <div>
+                                                    <h4 className="font-semibold">{item.quantity}x {item.product.name}</h4>
+                                                    {item.selectedAddons.length > 0 && (
+                                                        <ul className="text-sm text-muted-foreground list-disc pl-5">
+                                                            {item.selectedAddons.map(addon => <li key={addon.id}>{addon.name}</li>)}
+                                                        </ul>
+                                                    )}
+                                                </div>
+                                                <p className="font-semibold">{formatCurrency(item.totalPrice)}</p>
                                             </div>
-                                            <p className="font-semibold">{formatCurrency(item.totalPrice)}</p>
+                                        <Separator className="my-2" />
                                         </div>
-                                    <Separator className="my-2" />
-                                    </div>
-                                ))}
-                                {cart.length === 0 && <p className="text-muted-foreground text-center py-8">Seu carrinho está vazio.</p>}
+                                    ))}
+                                    {cart.length === 0 && <p className="text-muted-foreground text-center py-8">Seu carrinho está vazio.</p>}
+                                </div>
+
+                                <div className="space-y-4">
+                                     <Separator />
+                                     <div>
+                                        <h3 className="text-lg font-semibold mb-2">Dados da Entrega</h3>
+                                        <div className="space-y-2">
+                                             <Label htmlFor="address">Endereço Completo</Label>
+                                             <Textarea 
+                                                id="address" 
+                                                placeholder="Ex: Rua das Flores, 123, Bairro, Cidade - SP, 01234-567" 
+                                                value={deliveryAddress}
+                                                onChange={(e) => setDeliveryAddress(e.target.value)}
+                                            />
+                                        </div>
+                                     </div>
+                                     <div>
+                                        <h3 className="text-lg font-semibold mb-2">Forma de Pagamento</h3>
+                                         <RadioGroup value={paymentMethod} onValueChange={(value: any) => setPaymentMethod(value)}>
+                                            <div className="flex items-center space-x-2">
+                                                <RadioGroupItem value="card" id="card" />
+                                                <Label htmlFor="card">Cartão de Crédito/Débito</Label>
+                                            </div>
+                                            <div className="flex items-center space-x-2">
+                                                <RadioGroupItem value="pix" id="pix" />
+                                                <Label htmlFor="pix">PIX</Label>
+                                            </div>
+                                            <div className="flex items-center space-x-2">
+                                                <RadioGroupItem value="cash" id="cash" />
+                                                <Label htmlFor="cash">Dinheiro</Label>
+                                            </div>
+                                        </RadioGroup>
+                                        {paymentMethod === 'cash' && (
+                                            <div className="mt-4 space-y-2">
+                                                <Label htmlFor="change">Precisa de troco? Para quanto?</Label>
+                                                <Input 
+                                                    id="change" 
+                                                    placeholder="Ex: R$ 50,00"
+                                                    value={changeFor}
+                                                    onChange={(e) => setChangeFor(e.target.value)}
+                                                />
+                                            </div>
+                                        )}
+                                     </div>
+                                </div>
                             </div>
                             <DialogFooter className="flex-col !justify-start items-stretch gap-4 pt-4 border-t">
                                 <div className="flex justify-between items-center text-xl font-bold">
                                     <span>Total:</span>
                                     <span>{formatCurrency(totalCartPrice)}</span>
                                 </div>
-                                <Button size="lg" className="w-full bg-green-500 hover:bg-green-600">
+                                <Button size="lg" className="w-full bg-green-500 hover:bg-green-600" onClick={sendOrderToWhatsApp} disabled={cart.length === 0}>
                                     <ShoppingCart className="mr-2" />
                                     Finalizar Pedido no WhatsApp
                                 </Button>
@@ -317,5 +416,3 @@ export default function MenuPage() {
     </Dialog>
     );
 }
-
-    
