@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Plus, Minus, ShoppingCart } from 'lucide-react';
+import { Plus, Minus, ShoppingCart, Clock } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -24,6 +24,25 @@ import { Label } from '@/components/ui/label';
 const restaurant = {
   name: 'Cantina da Mama',
   isOpen: true, // This could be calculated based on operating hours
+  operatingHours: {
+    monday: { isOpen: true, openTime: '18:00', closeTime: '23:00' },
+    tuesday: { isOpen: true, openTime: '18:00', closeTime: '23:00' },
+    wednesday: { isOpen: true, openTime: '18:00', closeTime: '23:00' },
+    thursday: { isOpen: true, openTime: '18:00', closeTime: '23:00' },
+    friday: { isOpen: true, openTime: '18:00', closeTime: '00:00' },
+    saturday: { isOpen: true, openTime: '12:00', closeTime: '00:00' },
+    sunday: { isOpen: false, openTime: '', closeTime: '' },
+  }
+};
+
+const weekDayLabels: Record<string, string> = {
+    monday: 'Segunda',
+    tuesday: 'Terça',
+    wednesday: 'Quarta',
+    thursday: 'Quinta',
+    friday: 'Sexta',
+    saturday: 'Sábado',
+    sunday: 'Domingo',
 };
 
 const categories = [
@@ -126,11 +145,36 @@ export default function MenuPage() {
                 <div className="absolute inset-0 bg-black/50 z-10" />
                 <div className="container mx-auto px-4 absolute inset-0 z-20 flex flex-col justify-center items-center text-center text-white">
                     <h1 className="text-4xl md:text-6xl font-bold drop-shadow-lg">{restaurant.name}</h1>
-                     {restaurant.isOpen ? (
-                        <Badge variant="default" className="bg-green-500 hover:bg-green-600 mt-2 text-base">Aberto</Badge>
-                    ) : (
-                        <Badge variant="destructive" className="mt-2 text-base">Fechado</Badge>
-                    )}
+                     <div className="flex items-center gap-4 mt-2">
+                        {restaurant.isOpen ? (
+                            <Badge variant="default" className="bg-green-500 hover:bg-green-600 text-base">Aberto</Badge>
+                        ) : (
+                            <Badge variant="destructive" className="text-base">Fechado</Badge>
+                        )}
+                         <Dialog>
+                            <DialogTrigger asChild>
+                                <Button variant="outline" size="sm" className="bg-transparent text-white border-white hover:bg-white hover:text-black">
+                                    <Clock className="mr-2 h-4 w-4" />
+                                    Horários
+                                </Button>
+                            </DialogTrigger>
+                            <DialogContent className="sm:max-w-xs">
+                                <DialogHeader>
+                                    <DialogTitle className="text-center">Horários de Funcionamento</DialogTitle>
+                                </DialogHeader>
+                                <div className="space-y-2">
+                                    {Object.entries(restaurant.operatingHours).map(([day, hours]) => (
+                                        <div key={day} className="flex justify-between text-sm">
+                                            <span className="font-medium">{weekDayLabels[day]}:</span>
+                                            <span>
+                                                {hours.isOpen ? `${hours.openTime} - ${hours.closeTime}` : 'Fechado'}
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </DialogContent>
+                        </Dialog>
+                    </div>
                 </div>
             </header>
 
