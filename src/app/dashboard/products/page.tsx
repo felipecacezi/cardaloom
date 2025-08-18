@@ -10,7 +10,7 @@ import Image from 'next/image';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { PlusCircle, MoreVertical, Edit, Trash2, Search, Loader2, X } from 'lucide-react';
+import { PlusCircle, MoreVertical, Edit, Trash2, Search, Loader2, X, Eye, EyeOff } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -54,6 +54,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Combobox } from '@/components/ui/combobox';
+import { Switch } from '@/components/ui/switch';
 
 
 type Addon = {
@@ -70,14 +71,15 @@ type Product = {
   category: string;
   image: string;
   addons: Addon[];
+  isVisible: boolean;
 };
 
 const productsData: Product[] = [
-    { id: 1, name: 'Pizza Margherita', price: 45.00, description: 'Molho de tomate, mussarela fresca e manjericão.', category: 'Pizzas Salgadas', image: 'https://placehold.co/100x100.png', addons: [] },
-    { id: 2, name: 'Pizza Calabresa', price: 48.50, description: 'Molho de tomate, mussarela, calabresa e cebola.', category: 'Pizzas Salgadas', image: 'https://placehold.co/100x100.png', addons: [{ id: 1, name: 'Borda Recheada Catupiry', price: 8.00 }, { id: 3, name: 'Bacon Extra', price: 6.50 }] },
-    { id: 3, name: 'Pizza Quatro Queijos', price: 52.00, description: 'Molho de tomate, mussarela, provolone, parmesão e gorgonzola.', category: 'Pizzas Salgadas', image: 'https://placehold.co/100x100.png', addons: [{ id: 1, name: 'Borda Recheada Catupiry', price: 8.00 }, { id: 2, name: 'Borda Recheada Cheddar', price: 8.00 }] },
-    { id: 4, name: 'Pizza de Chocolate', price: 40.00, description: 'Chocolate ao leite com morangos frescos.', category: 'Pizzas Doces', image: 'https://placehold.co/100x100.png', addons: [] },
-    { id: 5, name: 'Coca-Cola 2L', price: 10.00, description: 'Refrigerante gelado para acompanhar sua pizza.', category: 'Bebidas', image: 'https://placehold.co/100x100.png', addons: [] },
+    { id: 1, name: 'Pizza Margherita', price: 45.00, description: 'Molho de tomate, mussarela fresca e manjericão.', category: 'Pizzas Salgadas', image: 'https://placehold.co/100x100.png', addons: [], isVisible: true },
+    { id: 2, name: 'Pizza Calabresa', price: 48.50, description: 'Molho de tomate, mussarela, calabresa e cebola.', category: 'Pizzas Salgadas', image: 'https://placehold.co/100x100.png', addons: [{ id: 1, name: 'Borda Recheada Catupiry', price: 8.00 }, { id: 3, name: 'Bacon Extra', price: 6.50 }], isVisible: true },
+    { id: 3, name: 'Pizza Quatro Queijos', price: 52.00, description: 'Molho de tomate, mussarela, provolone, parmesão e gorgonzola.', category: 'Pizzas Salgadas', image: 'https://placehold.co/100x100.png', addons: [{ id: 1, name: 'Borda Recheada Catupiry', price: 8.00 }, { id: 2, name: 'Borda Recheada Cheddar', price: 8.00 }], isVisible: true },
+    { id: 4, name: 'Pizza de Chocolate', price: 40.00, description: 'Chocolate ao leite com morangos frescos.', category: 'Pizzas Doces', image: 'https://placehold.co/100x100.png', addons: [], isVisible: true },
+    { id: 5, name: 'Coca-Cola 2L', price: 10.00, description: 'Refrigerante gelado para acompanhar sua pizza.', category: 'Bebidas', image: 'https://placehold.co/100x100.png', addons: [], isVisible: false },
 ];
 
 const categoriesData = [
@@ -109,6 +111,7 @@ const formSchema = z.object({
   category: z.string({ required_error: "A categoria é obrigatória."}),
   image: z.any(),
   addonIds: z.array(z.number()).optional(),
+  isVisible: z.boolean().default(true),
 });
 
 
@@ -127,7 +130,7 @@ export default function ProductsPage() {
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
-    defaultValues: { name: '', price: 0, description: '', category: '', addonIds: [] },
+    defaultValues: { name: '', price: 0, description: '', category: '', addonIds: [], isVisible: true },
   });
 
   useEffect(() => {
@@ -139,9 +142,10 @@ export default function ProductsPage() {
         category: editingProduct.category,
         image: editingProduct.image,
         addonIds: editingProduct.addons.map(a => a.id),
+        isVisible: editingProduct.isVisible,
       });
     } else {
-        form.reset({ name: '', price: 0, description: '', category: '', image: null, addonIds: [] });
+        form.reset({ name: '', price: 0, description: '', category: '', image: null, addonIds: [], isVisible: true });
     }
   }, [editingProduct, form]);
 
@@ -200,7 +204,7 @@ export default function ProductsPage() {
 
      if (editingProduct) {
         setProducts(prev => prev.map(p =>
-            p.id === editingProduct.id ? { ...editingProduct, ...values, image: imageUrl, addons: selectedAddons } : p
+            p.id === editingProduct.id ? { ...editingProduct, ...values, image: imageUrl, addons: selectedAddons, isVisible: values.isVisible } : p
         ));
         toast({
             title: "Produto Atualizado!",
@@ -217,6 +221,7 @@ export default function ProductsPage() {
             category: values.category,
             image: imageUrl,
             addons: selectedAddons,
+            isVisible: values.isVisible,
         };
         setProducts(prev => [...prev, newProduct]);
         toast({
@@ -225,7 +230,7 @@ export default function ProductsPage() {
         });
         setIsCreateModalOpen(false);
      }
-     form.reset({ name: '', price: 0, description: '', category: '', image: null, addonIds: [] });
+     form.reset({ name: '', price: 0, description: '', category: '', image: null, addonIds: [], isVisible: true });
      setIsUploading(false);
   }
 
@@ -236,7 +241,7 @@ export default function ProductsPage() {
   
   const handleCreateClick = () => {
     setEditingProduct(null);
-    form.reset({ name: '', price: 0, description: '', category: '', image: null, addonIds: [] });
+    form.reset({ name: '', price: 0, description: '', category: '', image: null, addonIds: [], isVisible: true });
     setIsCreateModalOpen(true);
   }
 
@@ -357,6 +362,26 @@ export default function ProductsPage() {
                 </FormItem>
             )}
         />
+         <FormField
+            control={form.control}
+            name="isVisible"
+            render={({ field }) => (
+                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                    <div className="space-y-0.5">
+                        <FormLabel>Visível no Cardápio</FormLabel>
+                        <p className="text-sm text-muted-foreground">
+                            Define se este produto será exibido para os seus clientes.
+                        </p>
+                    </div>
+                    <FormControl>
+                        <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                        />
+                    </FormControl>
+                </FormItem>
+            )}
+        />
         <Separator className="my-4" />
         <div>
             <h3 className="text-lg font-medium">Opcionais do Produto</h3>
@@ -444,6 +469,7 @@ export default function ProductsPage() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead>Status</TableHead>
                   <TableHead>Imagem</TableHead>
                   <TableHead>Nome</TableHead>
                   <TableHead>Categoria</TableHead>
@@ -455,6 +481,19 @@ export default function ProductsPage() {
               <TableBody>
                 {currentProducts.map((product) => (
                   <TableRow key={product.id}>
+                    <TableCell>
+                        {product.isVisible ? (
+                            <div className="flex items-center gap-2">
+                                <Eye className="h-4 w-4 text-green-500" />
+                                <span className="sr-only">Visível</span>
+                            </div>
+                        ) : (
+                            <div className="flex items-center gap-2">
+                                <EyeOff className="h-4 w-4 text-muted-foreground" />
+                                 <span className="sr-only">Oculto</span>
+                            </div>
+                        )}
+                    </TableCell>
                     <TableCell>
                         <Image src={product.image} alt={product.name} width={64} height={64} className="rounded-md object-cover" />
                     </TableCell>
@@ -565,3 +604,5 @@ export default function ProductsPage() {
     </>
   );
 }
+
+    
