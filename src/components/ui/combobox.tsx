@@ -55,7 +55,7 @@ export function Combobox({ options, placeholder, searchPlaceholder, notFoundText
                 <CommandItem
                     key={option.value}
                     value={option.label}
-                    onSelect={() => {
+                    onSelect={(currentValue) => {
                         onSelect(option.value)
                         setOpen(false)
                     }}
