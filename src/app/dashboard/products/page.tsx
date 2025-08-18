@@ -52,7 +52,15 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Separator } from '@/components/ui/separator';
 
+
+type Addon = {
+  id: number;
+  name: string;
+  price: number;
+};
 
 type Product = {
   id: number;
@@ -61,14 +69,15 @@ type Product = {
   description: string;
   category: string;
   image: string;
+  addons: Addon[];
 };
 
 const productsData: Product[] = [
-    { id: 1, name: 'Pizza Margherita', price: 45.00, description: 'Molho de tomate, mussarela fresca e manjericão.', category: 'Pizzas Salgadas', image: 'https://placehold.co/100x100.png' },
-    { id: 2, name: 'Pizza Calabresa', price: 48.50, description: 'Molho de tomate, mussarela, calabresa e cebola.', category: 'Pizzas Salgadas', image: 'https://placehold.co/100x100.png' },
-    { id: 3, name: 'Pizza Quatro Queijos', price: 52.00, description: 'Molho de tomate, mussarela, provolone, parmesão e gorgonzola.', category: 'Pizzas Salgadas', image: 'https://placehold.co/100x100.png' },
-    { id: 4, name: 'Pizza de Chocolate', price: 40.00, description: 'Chocolate ao leite com morangos frescos.', category: 'Pizzas Doces', image: 'https://placehold.co/100x100.png' },
-    { id: 5, name: 'Coca-Cola 2L', price: 10.00, description: 'Refrigerante gelado para acompanhar sua pizza.', category: 'Bebidas', image: 'https://placehold.co/100x100.png' },
+    { id: 1, name: 'Pizza Margherita', price: 45.00, description: 'Molho de tomate, mussarela fresca e manjericão.', category: 'Pizzas Salgadas', image: 'https://placehold.co/100x100.png', addons: [] },
+    { id: 2, name: 'Pizza Calabresa', price: 48.50, description: 'Molho de tomate, mussarela, calabresa e cebola.', category: 'Pizzas Salgadas', image: 'https://placehold.co/100x100.png', addons: [{ id: 1, name: 'Borda Recheada Catupiry', price: 8.00 }, { id: 3, name: 'Bacon Extra', price: 6.50 }] },
+    { id: 3, name: 'Pizza Quatro Queijos', price: 52.00, description: 'Molho de tomate, mussarela, provolone, parmesão e gorgonzola.', category: 'Pizzas Salgadas', image: 'https://placehold.co/100x100.png', addons: [{ id: 1, name: 'Borda Recheada Catupiry', price: 8.00 }, { id: 2, name: 'Borda Recheada Cheddar', price: 8.00 }] },
+    { id: 4, name: 'Pizza de Chocolate', price: 40.00, description: 'Chocolate ao leite com morangos frescos.', category: 'Pizzas Doces', image: 'https://placehold.co/100x100.png', addons: [] },
+    { id: 5, name: 'Coca-Cola 2L', price: 10.00, description: 'Refrigerante gelado para acompanhar sua pizza.', category: 'Bebidas', image: 'https://placehold.co/100x100.png', addons: [] },
 ];
 
 const categoriesData = [
@@ -77,6 +86,18 @@ const categoriesData = [
   { id: 3, name: 'Bebidas' },
   { id: 4, name: 'Sobremesas' },
 ];
+
+const addonsData: Addon[] = [
+    { id: 1, name: 'Borda Recheada Catupiry', price: 8.00 },
+    { id: 2, name: 'Borda Recheada Cheddar', price: 8.00 },
+    { id: 3, name: 'Bacon Extra', price: 6.50 },
+    { id: 4, name: 'Catupiry Extra', price: 5.00 },
+    { id: 5, name: 'Cheddar Extra', price: 5.00 },
+    { id: 6, name: 'Ovo', price: 3.00 },
+    { id: 7, name: 'Batata Frita P', price: 12.00 },
+    { id: 8, name: 'Guaraná Antarctica 2L', price: 10.00 },
+];
+
 
 const formSchema = z.object({
   name: z.string().min(2, { message: 'O nome do produto é obrigatório.' }),
@@ -87,6 +108,7 @@ const formSchema = z.object({
   description: z.string().min(5, { message: "A descrição é obrigatória." }),
   category: z.string({ required_error: "A categoria é obrigatória."}),
   image: z.any(),
+  addonIds: z.array(z.number()).optional(),
 });
 
 
@@ -105,7 +127,7 @@ export default function ProductsPage() {
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
-    defaultValues: { name: '', price: 0, description: '', category: '' },
+    defaultValues: { name: '', price: 0, description: '', category: '', addonIds: [] },
   });
 
   useEffect(() => {
@@ -116,9 +138,10 @@ export default function ProductsPage() {
         description: editingProduct.description,
         category: editingProduct.category,
         image: editingProduct.image,
+        addonIds: editingProduct.addons.map(a => a.id),
       });
     } else {
-        form.reset({ name: '', price: 0, description: '', category: '', image: null });
+        form.reset({ name: '', price: 0, description: '', category: '', image: null, addonIds: [] });
     }
   }, [editingProduct, form]);
 
@@ -143,7 +166,7 @@ export default function ProductsPage() {
     setIsUploading(true);
     let imageUrl = editingProduct?.image || 'https://placehold.co/100x100.png';
 
-    if (values.image && values.image[0]) {
+    if (values.image && typeof values.image !== 'string' && values.image[0]) {
         const file = values.image[0];
         const formData = new FormData();
         formData.append('file', file);
@@ -171,11 +194,13 @@ export default function ProductsPage() {
             return;
         }
     }
+    
+    const selectedAddons = addonsData.filter(addon => values.addonIds?.includes(addon.id));
 
 
      if (editingProduct) {
         setProducts(prev => prev.map(p =>
-            p.id === editingProduct.id ? { ...editingProduct, ...values, image: imageUrl } : p
+            p.id === editingProduct.id ? { ...editingProduct, ...values, image: imageUrl, addons: selectedAddons } : p
         ));
         toast({
             title: "Produto Atualizado!",
@@ -184,10 +209,14 @@ export default function ProductsPage() {
         setIsEditModalOpen(false);
         setEditingProduct(null);
      } else {
-        const newProduct = {
+        const newProduct: Product = {
             id: Date.now(),
-            ...values,
-            image: imageUrl
+            name: values.name,
+            price: values.price,
+            description: values.description,
+            category: values.category,
+            image: imageUrl,
+            addons: selectedAddons,
         };
         setProducts(prev => [...prev, newProduct]);
         toast({
@@ -196,7 +225,7 @@ export default function ProductsPage() {
         });
         setIsCreateModalOpen(false);
      }
-     form.reset({ name: '', price: 0, description: '', category: '', image: null });
+     form.reset({ name: '', price: 0, description: '', category: '', image: null, addonIds: [] });
      setIsUploading(false);
   }
 
@@ -207,7 +236,7 @@ export default function ProductsPage() {
   
   const handleCreateClick = () => {
     setEditingProduct(null);
-    form.reset({ name: '', price: 0, description: '', category: '', image: null });
+    form.reset({ name: '', price: 0, description: '', category: '', image: null, addonIds: [] });
     setIsCreateModalOpen(true);
   }
 
@@ -320,6 +349,55 @@ export default function ProductsPage() {
                 </FormItem>
             )}
         />
+        <Separator className="my-4" />
+        <div>
+            <h3 className="text-lg font-medium">Opcionais do Produto</h3>
+            <p className="text-sm text-muted-foreground">Selecione os adicionais disponíveis para este produto.</p>
+        </div>
+         <FormField
+            control={form.control}
+            name="addonIds"
+            render={() => (
+                <FormItem>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-2">
+                        {addonsData.map((addon) => (
+                            <FormField
+                                key={addon.id}
+                                control={form.control}
+                                name="addonIds"
+                                render={({ field }) => {
+                                    return (
+                                        <FormItem
+                                            key={addon.id}
+                                            className="flex flex-row items-start space-x-3 space-y-0"
+                                        >
+                                            <FormControl>
+                                                <Checkbox
+                                                    checked={field.value?.includes(addon.id)}
+                                                    onCheckedChange={(checked) => {
+                                                        return checked
+                                                            ? field.onChange([...(field.value || []), addon.id])
+                                                            : field.onChange(
+                                                                field.value?.filter(
+                                                                    (value) => value !== addon.id
+                                                                )
+                                                            )
+                                                    }}
+                                                />
+                                            </FormControl>
+                                            <FormLabel className="font-normal">
+                                                {addon.name} ({formatCurrency(addon.price)})
+                                            </FormLabel>
+                                        </FormItem>
+                                    )
+                                }}
+                            />
+                        ))}
+                    </div>
+                    <FormMessage />
+                </FormItem>
+            )}
+        />
     </>
     )
   };
@@ -365,9 +443,9 @@ export default function ProductsPage() {
                 <TableRow>
                   <TableHead>Imagem</TableHead>
                   <TableHead>Nome</TableHead>
-                  <TableHead>Descrição</TableHead>
                   <TableHead>Categoria</TableHead>
                   <TableHead>Preço</TableHead>
+                  <TableHead>Opcionais</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
@@ -378,9 +456,15 @@ export default function ProductsPage() {
                         <Image src={product.image} alt={product.name} width={64} height={64} className="rounded-md object-cover" />
                     </TableCell>
                     <TableCell className="font-medium">{product.name}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground max-w-[300px] truncate">{product.description}</TableCell>
                     <TableCell><Badge variant="outline">{product.category}</Badge></TableCell>
                     <TableCell>{formatCurrency(product.price)}</TableCell>
+                    <TableCell>
+                        <div className="flex flex-wrap gap-1">
+                            {product.addons.length > 0 ? product.addons.map(addon => (
+                                <Badge key={addon.id} variant="secondary">{addon.name}</Badge>
+                            )) : <span className="text-xs text-muted-foreground">N/A</span>}
+                        </div>
+                    </TableCell>
                     <TableCell className="text-right">
                        <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -446,8 +530,13 @@ export default function ProductsPage() {
         </AlertDialogContent>
         </AlertDialog>
       </main>
-      <Dialog open={isCreateModalOpen || isEditModalOpen} onOpenChange={isEditModalOpen ? setIsEditModalOpen : setIsCreateModalOpen}>
-        <DialogContent className="sm:max-w-xl">
+      <Dialog open={isCreateModalOpen || isEditModalOpen} onOpenChange={(isOpen) => {
+        if (!isOpen) {
+            setIsCreateModalOpen(false);
+            setIsEditModalOpen(false);
+        }
+      }}>
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
                 <DialogTitle>{editingProduct ? 'Editar Produto' : 'Criar Novo Produto'}</DialogTitle>
                 <DialogDescription>
