@@ -75,8 +75,8 @@ export default function DashboardLayout({
                  </Link>
             </SidebarMenuItem>
             <SidebarMenuItem>
-                <Link href="#">
-                    <SidebarMenuButton asChild tooltip="Configurações">
+                <Link href="/dashboard/settings">
+                    <SidebarMenuButton asChild isActive={pathname === '/dashboard/settings'} tooltip="Configurações">
                         <span>
                             <Settings />
                             Configurações
@@ -107,5 +107,3 @@ export default function DashboardLayout({
     </SidebarProvider>
   );
 }
-
-    
