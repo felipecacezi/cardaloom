@@ -101,6 +101,7 @@ export default function MenuPage() {
     const [isOperatingHoursOpen, setIsOperatingHoursOpen] = useState(false);
 
     // New state for delivery and payment
+    const [customerName, setCustomerName] = useState('');
     const [deliveryAddress, setDeliveryAddress] = useState('');
     const [paymentMethod, setPaymentMethod] = useState<'card' | 'pix' | 'cash' | undefined>(undefined);
     const [changeFor, setChangeFor] = useState('');
@@ -157,6 +158,7 @@ export default function MenuPage() {
         
         message += `*Total do Pedido: ${formatCurrency(totalCartPrice)}*\n\n`;
         message += "--- DADOS PARA ENTREGA ---\n";
+        message += `*Nome do Cliente:* ${customerName}\n`;
         message += `*Endereço:* ${deliveryAddress}\n`;
         
         let paymentInfo = '';
@@ -176,10 +178,6 @@ export default function MenuPage() {
     };
 
     const sendOrderToWhatsApp = () => {
-        if(!deliveryAddress || !paymentMethod) {
-            alert('Por favor, preencha o endereço e a forma de pagamento.');
-            return;
-        }
         const message = generateWhatsAppMessage();
         const whatsappUrl = `https://wa.me/${restaurant.whatsappNumber}?text=${message}`;
         window.open(whatsappUrl, '_blank');
@@ -306,6 +304,13 @@ export default function MenuPage() {
                                      <div>
                                         <h3 className="text-lg font-semibold mb-2">Dados da Entrega</h3>
                                         <div className="space-y-2">
+                                             <Label htmlFor="customer-name">Seu Nome</Label>
+                                             <Input 
+                                                id="customer-name"
+                                                placeholder="Digite seu nome completo" 
+                                                value={customerName}
+                                                onChange={(e) => setCustomerName(e.target.value)}
+                                            />
                                              <Label htmlFor="address">Endereço Completo</Label>
                                              <Textarea 
                                                 id="address" 
@@ -350,7 +355,12 @@ export default function MenuPage() {
                                     <span>Total:</span>
                                     <span>{formatCurrency(totalCartPrice)}</span>
                                 </div>
-                                <Button size="lg" className="w-full bg-green-500 hover:bg-green-600" onClick={sendOrderToWhatsApp} disabled={cart.length === 0}>
+                                <Button 
+                                    size="lg" 
+                                    className="w-full bg-green-500 hover:bg-green-600" 
+                                    onClick={sendOrderToWhatsApp} 
+                                    disabled={cart.length === 0 || !customerName || !deliveryAddress || !paymentMethod}
+                                >
                                     <ShoppingCart className="mr-2" />
                                     Finalizar Pedido no WhatsApp
                                 </Button>
@@ -416,3 +426,5 @@ export default function MenuPage() {
     </Dialog>
     );
 }
+
+    
