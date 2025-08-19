@@ -3,11 +3,14 @@
 
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
+import { useSearchParams } from 'next/navigation';
+import { ref, get } from 'firebase/database';
+
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Plus, Minus, ShoppingCart, Clock } from 'lucide-react';
+import { Plus, Minus, ShoppingCart, Clock, Loader2 } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -22,22 +25,35 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Input } from '@/components/ui/input';
+import { realtimeDb } from '@/lib/firebase';
+import { Skeleton } from '@/components/ui/skeleton';
 
-// Mock data (replace with actual data fetching)
-const restaurant = {
-  name: 'Cantina da Mama',
-  isOpen: true, // This could be calculated based on operating hours
-  operatingHours: {
-    monday: { isOpen: true, openTime: '18:00', closeTime: '23:00' },
-    tuesday: { isOpen: true, openTime: '18:00', closeTime: '23:00' },
-    wednesday: { isOpen: true, openTime: '18:00', closeTime: '23:00' },
-    thursday: { isOpen: true, openTime: '18:00', closeTime: '23:00' },
-    friday: { isOpen: true, openTime: '18:00', closeTime: '00:00' },
-    saturday: { isOpen: true, openTime: '12:00', closeTime: '00:00' },
-    sunday: { isOpen: false, openTime: '', closeTime: '' },
-  },
-   whatsappNumber: '5519992440916', // User provided number
+type Restaurant = {
+  name: string;
+  operatingHours: Record<string, { isOpen: boolean; openTime: string; closeTime: string }>;
+  whatsappNumber: string;
+  delivery: boolean;
 };
+
+type Category = { id: string; name: string };
+type Addon = { id: string; name: string; price: number };
+type ImageInfo = { id: string; filePath: string };
+type Product = {
+  id: string;
+  name: string;
+  price: number;
+  description: string;
+  category: string;
+  imageId: string;
+  addons?: Record<string, boolean>;
+  isVisible: boolean;
+};
+type CartItem = {
+    product: Product;
+    quantity: number;
+    selectedAddons: Addon[];
+    totalPrice: number;
+}
 
 const weekDayLabels: Record<string, string> = {
     monday: 'Segunda',
@@ -49,49 +65,23 @@ const weekDayLabels: Record<string, string> = {
     sunday: 'Domingo',
 };
 
-const categories = [
-  { id: 1, name: 'Pizzas Salgadas' },
-  { id: 2, name: 'Pizzas Doces' },
-  { id: 3, name: 'Bebidas' },
-  { id: 4, name: 'Sobremesas' },
-];
-
-const products = [
-    { id: 1, name: 'Pizza Margherita', price: 45.00, description: 'Molho de tomate, mussarela fresca e manjericão.', category: 'Pizzas Salgadas', image: 'https://placehold.co/600x400.png', addons: [{ id: 1, name: 'Borda Recheada Catupiry', price: 8.00 }], isVisible: true },
-    { id: 2, name: 'Pizza Calabresa', price: 48.50, description: 'Molho de tomate, mussarela, calabresa e cebola.', category: 'Pizzas Salgadas', image: 'https://placehold.co/600x400.png', addons: [{ id: 1, name: 'Borda Recheada Catupiry', price: 8.00 }, { id: 3, name: 'Bacon Extra', price: 6.50 }], isVisible: true },
-    { id: 3, name: 'Pizza Quatro Queijos', price: 52.00, description: 'Molho de tomate, mussarela, provolone, parmesão e gorgonzola.', category: 'Pizzas Salgadas', image: 'https://placehold.co/600x400.png', addons: [{ id: 1, name: 'Borda Recheada Catupiry', price: 8.00 }, { id: 2, name: 'Borda Recheada Cheddar', price: 8.00 }], isVisible: true },
-    { id: 4, name: 'Pizza Portuguesa', price: 50.00, description: 'Molho, mussarela, presunto, ovo, cebola, pimentão e azeitona.', category: 'Pizzas Salgadas', image: 'https://placehold.co/600x400.png', addons: [{id: 6, name: 'Ovo', price: 3.00}], isVisible: true },
-    { id: 5, name: 'Pizza Frango com Catupiry', price: 51.00, description: 'Molho de tomate, frango desfiado coberto com Catupiry.', category: 'Pizzas Salgadas', image: 'https://placehold.co/600x400.png', addons: [], isVisible: true },
-    { id: 13, name: 'Pizza Pepperoni', price: 53.00, description: 'Molho de tomate, mussarela e fatias de pepperoni.', category: 'Pizzas Salgadas', image: 'https://placehold.co/600x400.png', addons: [{ id: 1, name: 'Borda Recheada Catupiry', price: 8.00 }], isVisible: true },
-    { id: 14, name: 'Pizza Vegetariana', price: 49.00, description: 'Molho de tomate, mussarela, brócolis, palmito, champignon e tomate.', category: 'Pizzas Salgadas', image: 'https://placehold.co/600x400.png', addons: [], isVisible: true },
-    { id: 6, name: 'Pizza de Chocolate com Morango', price: 42.00, description: 'Deliciosa pizza doce com chocolate ao leite e morangos frescos.', category: 'Pizzas Doces', image: 'https://placehold.co/600x400.png', addons: [], isVisible: true },
-    { id: 7, name: 'Pizza Romeu e Julieta', price: 40.00, description: 'Mussarela derretida com uma generosa camada de goiabada.', category: 'Pizzas Doces', image: 'https://placehold.co/600x400.png', addons: [], isVisible: true },
-    { id: 15, name: 'Pizza Banana com Canela', price: 38.00, description: 'Banana fatiada com açúcar e canela sobre uma base de mussarela.', category: 'Pizzas Doces', image: 'https://placehold.co/600x400.png', addons: [], isVisible: true },
-    { id: 8, name: 'Coca-Cola 2L', price: 10.00, description: 'Refrigerante gelado para acompanhar sua pizza.', category: 'Bebidas', image: 'https://placehold.co/600x400.png', addons: [], isVisible: true },
-    { id: 9, name: 'Guaraná Antarctica 2L', price: 10.00, description: 'O sabor original do Brasil, bem gelado.', category: 'Bebidas', image: 'https://placehold.co/600x400.png', addons: [], isVisible: true },
-    { id: 10, name: 'Água Mineral sem Gás 500ml', price: 4.00, description: 'Para se manter hidratado.', category: 'Bebidas', image: 'https://placehold.co/600x400.png', addons: [], isVisible: true },
-    { id: 16, name: 'Suco de Laranja Natural 500ml', price: 8.00, description: 'Feito com laranjas frescas espremidas na hora.', category: 'Bebidas', image: 'https://placehold.co/600x400.png', addons: [], isVisible: true },
-    { id: 11, name: 'Pudim de Leite Condensado', price: 8.00, description: 'A sobremesa clássica que todo mundo ama.', category: 'Sobremesas', image: 'https://placehold.co/600x400.png', addons: [], isVisible: true },
-    { id: 12, name: 'Mousse de Maracujá', price: 9.00, description: 'Azedinho e doce na medida certa.', category: 'Sobremesas', image: 'https://placehold.co/600x400.png', addons: [], isVisible: true },
-    { id: 17, name: 'Torta Holandesa (fatia)', price: 12.00, description: 'Uma fatia generosa da famosa torta com base de biscoito e creme.', category: 'Sobremesas', image: 'https://placehold.co/600x400.png', addons: [], isVisible: true },
-];
-
-
-type Addon = { id: number; name: string; price: number; };
-type Product = typeof products[0];
-type CartItem = {
-    product: Product;
-    quantity: number;
-    selectedAddons: Addon[];
-    totalPrice: number;
-}
-
-
 const formatCurrency = (value: number) => {
-    return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    return (value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 };
 
 export default function MenuPage() {
+    const searchParams = useSearchParams();
+    const restaurantId = searchParams.get('id');
+
+    const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
+    const [categories, setCategories] = useState<Category[]>([]);
+    const [products, setProducts] = useState<Product[]>([]);
+    const [addons, setAddons] = useState<Addon[]>([]);
+    const [images, setImages] = useState<Record<string, ImageInfo>>({});
+
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
     const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
     const [quantity, setQuantity] = useState(1);
     const [selectedAddons, setSelectedAddons] = useState<Addon[]>([]);
@@ -100,12 +90,69 @@ export default function MenuPage() {
     const [isCartDialogOpen, setIsCartDialogOpen] = useState(false);
     const [isOperatingHoursOpen, setIsOperatingHoursOpen] = useState(false);
 
-    // New state for delivery and payment
     const [customerName, setCustomerName] = useState('');
     const [deliveryAddress, setDeliveryAddress] = useState('');
     const [paymentMethod, setPaymentMethod] = useState<'card' | 'pix' | 'cash' | undefined>(undefined);
     const [changeFor, setChangeFor] = useState('');
 
+    useEffect(() => {
+        if (!restaurantId) {
+            setError("ID do restaurante não fornecido. Adicione '?id=SEU_CNPJ' à URL.");
+            setIsLoading(false);
+            return;
+        }
+
+        const fetchData = async () => {
+            setIsLoading(true);
+            setError(null);
+            try {
+                const userRef = ref(realtimeDb, `users/${restaurantId}`);
+                const categoriesRef = ref(realtimeDb, `categories/${restaurantId}`);
+                const productsRef = ref(realtimeDb, `products/${restaurantId}`);
+                const addonsRef = ref(realtimeDb, `add-ons/${restaurantId}`);
+                const imagesRef = ref(realtimeDb, `images/${restaurantId}`);
+
+                const [userSnap, catSnap, prodSnap, addonSnap, imgSnap] = await Promise.all([
+                    get(userRef),
+                    get(categoriesRef),
+                    get(productsRef),
+                    get(addonsRef),
+                    get(imagesRef),
+                ]);
+
+                if (!userSnap.exists()) {
+                    throw new Error("Restaurante não encontrado. Verifique o ID fornecido.");
+                }
+
+                const userData = userSnap.val();
+                setRestaurant({
+                    name: userData.restaurantName,
+                    operatingHours: userData.hours,
+                    whatsappNumber: userData.whatsappOrderNumber,
+                    delivery: userData.delivery,
+                });
+
+                const catData = catSnap.val() || {};
+                setCategories(Object.keys(catData).map(key => ({ id: key, ...catData[key] })));
+                
+                const prodData = prodSnap.val() || {};
+                setProducts(Object.keys(prodData).map(key => ({ id: key, ...prodData[key] })));
+
+                const addonData = addonSnap.val() || {};
+                setAddons(Object.keys(addonData).map(key => ({ id: key, ...addonData[key] })));
+
+                setImages(imgSnap.val() || {});
+
+            } catch (err: any) {
+                console.error(err);
+                setError(err.message || "Ocorreu um erro ao carregar o cardápio.");
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        fetchData();
+    }, [restaurantId]);
 
     const handleProductClick = (product: Product) => {
         setSelectedProduct(product);
@@ -143,7 +190,7 @@ export default function MenuPage() {
     const totalCartPrice = cart.reduce((acc, item) => acc + item.totalPrice, 0);
 
      const generateWhatsAppMessage = () => {
-        let message = `Olá, ${restaurant.name}! Gostaria de fazer o seguinte pedido:\n\n`;
+        let message = `Olá, ${restaurant?.name}! Gostaria de fazer o seguinte pedido:\n\n`;
 
         cart.forEach(item => {
             message += `*${item.quantity}x ${item.product.name}* (${formatCurrency(item.product.price)})\n`;
@@ -157,9 +204,11 @@ export default function MenuPage() {
         });
         
         message += `*Total do Pedido: ${formatCurrency(totalCartPrice)}*\n\n`;
-        message += "--- DADOS PARA ENTREGA ---\n";
+        message += `--- DADOS PARA ${restaurant?.delivery ? 'ENTREGA' : 'RETIRADA'} ---\n`;
         message += `*Nome do Cliente:* ${customerName}\n`;
-        message += `*Endereço:* ${deliveryAddress}\n`;
+        if (restaurant?.delivery) {
+            message += `*Endereço:* ${deliveryAddress}\n`;
+        }
         
         let paymentInfo = '';
         if (paymentMethod === 'card') paymentInfo = 'Cartão';
@@ -178,9 +227,95 @@ export default function MenuPage() {
     };
 
     const sendOrderToWhatsApp = () => {
+        if (!restaurant?.whatsappNumber) {
+            alert('Número do WhatsApp para pedidos não configurado.');
+            return;
+        };
         const message = generateWhatsAppMessage();
-        const whatsappUrl = `https://wa.me/${restaurant.whatsappNumber}?text=${message}`;
+        const whatsappUrl = `https://wa.me/${restaurant.whatsappNumber.replace(/\D/g, '')}?text=${message}`;
         window.open(whatsappUrl, '_blank');
+    };
+
+    const checkRestaurantOpen = () => {
+        if (!restaurant?.operatingHours) return false;
+        const today = new Date();
+        const dayOfWeek = today.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+        const currentTime = today.getHours() * 60 + today.getMinutes();
+        
+        const schedule = restaurant.operatingHours[dayOfWeek];
+
+        if (!schedule || !schedule.isOpen) {
+            return false;
+        }
+
+        const [openHour, openMinute] = schedule.openTime.split(':').map(Number);
+        const [closeHour, closeMinute] = schedule.closeTime.split(':').map(Number);
+
+        const openTimeInMinutes = openHour * 60 + openMinute;
+        let closeTimeInMinutes = closeHour * 60 + closeMinute;
+        
+        // Handle overnight closing times (e.g., 18:00 - 02:00)
+        if (closeTimeInMinutes < openTimeInMinutes) {
+            closeTimeInMinutes += 24 * 60; // Add 24 hours to the closing time
+            if(currentTime < openTimeInMinutes) {
+               // Adjust current time if it's past midnight
+               return (currentTime + 24*60) < closeTimeInMinutes;
+            }
+        }
+        
+        return currentTime >= openTimeInMinutes && currentTime < closeTimeInMinutes;
+    }
+    
+    const isRestaurantOpen = checkRestaurantOpen();
+
+    if (isLoading) {
+        return (
+            <div className="min-h-screen bg-muted/20">
+                 <header className="relative h-48 md:h-64 w-full">
+                     <Skeleton className="h-full w-full" />
+                </header>
+                <main className="container mx-auto px-4 py-8">
+                     <Skeleton className="h-10 w-1/3 mb-6" />
+                     <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {[...Array(6)].map((_, i) => (
+                             <Card key={i}>
+                                <Skeleton className="h-48 w-full rounded-t-lg" />
+                                <CardContent className="p-4 space-y-2">
+                                     <Skeleton className="h-6 w-3/4" />
+                                     <Skeleton className="h-4 w-full" />
+                                     <Skeleton className="h-4 w-5/6" />
+                                     <div className="flex justify-between items-center pt-4">
+                                        <Skeleton className="h-8 w-1/4" />
+                                        <Skeleton className="h-10 w-1/3" />
+                                     </div>
+                                </CardContent>
+                            </Card>
+                        ))}
+                     </div>
+                </main>
+            </div>
+        )
+    }
+
+    if (error) {
+       return (
+            <div className="flex flex-col items-center justify-center min-h-screen bg-muted/20 text-center p-4">
+                <h1 className="text-2xl font-bold text-destructive mb-4">Erro ao carregar o cardápio</h1>
+                <p className="text-muted-foreground">{error}</p>
+                 <Button onClick={() => window.location.reload()} className="mt-6">Tentar Novamente</Button>
+            </div>
+        );
+    }
+    
+    const getAddonsForProduct = (product: Product): Addon[] => {
+        if (!product.addons) return [];
+        const productAddonIds = Object.keys(product.addons);
+        return addons.filter(addon => productAddonIds.includes(addon.id));
+    };
+    
+    const getProductCategoryName = (product: Product) => {
+        const category = categories.find(c => c.id === product.category);
+        return category ? category.name : 'Sem Categoria';
     };
 
     return (
@@ -197,9 +332,9 @@ export default function MenuPage() {
                 />
                 <div className="absolute inset-0 bg-black/50 z-10" />
                 <div className="container mx-auto px-4 absolute inset-0 z-20 flex flex-col justify-center items-center text-center text-white">
-                    <h1 className="text-4xl md:text-6xl font-bold drop-shadow-lg">{restaurant.name}</h1>
+                    <h1 className="text-4xl md:text-6xl font-bold drop-shadow-lg">{restaurant?.name}</h1>
                      <div className="flex items-center gap-4 mt-2">
-                        {restaurant.isOpen ? (
+                        {isRestaurantOpen ? (
                             <Badge variant="default" className="bg-green-500 hover:bg-green-600 text-base">Aberto</Badge>
                         ) : (
                             <Badge variant="destructive" className="text-base">Fechado</Badge>
@@ -216,7 +351,7 @@ export default function MenuPage() {
                                     <DialogTitle className="text-center">Horários de Funcionamento</DialogTitle>
                                 </DialogHeader>
                                 <div className="space-y-2">
-                                    {Object.entries(restaurant.operatingHours).map(([day, hours]) => (
+                                    {restaurant?.operatingHours && Object.entries(restaurant.operatingHours).map(([day, hours]) => (
                                         <div key={day} className="flex justify-between text-sm">
                                             <span className="font-medium">{weekDayLabels[day]}:</span>
                                             <span>
@@ -232,32 +367,43 @@ export default function MenuPage() {
             </header>
 
             <main className="container mx-auto px-4 py-8">
-                {categories.map(category => (
-                    <section key={category.id} id={`category-${category.id}`} className="mb-12">
-                        <h2 className="text-3xl font-bold tracking-tight mb-6">{category.name}</h2>
-                        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                            {products.filter(p => p.category === category.name && p.isVisible).map(product => (
-                                <Card key={product.id} onClick={() => handleProductClick(product)} className="cursor-pointer hover:shadow-lg transition-shadow duration-300 flex flex-col">
-                                    <CardHeader className="p-0">
-                                        <div className="relative h-48 w-full">
-                                            <Image src={product.image} alt={product.name} fill objectFit="cover" className="rounded-t-lg" data-ai-hint="pizza food" />
+                {categories.map(category => {
+                    const categoryProducts = products.filter(p => p.category === category.id && p.isVisible);
+                    if (categoryProducts.length === 0) return null;
+
+                    return (
+                        <section key={category.id} id={`category-${category.id}`} className="mb-12">
+                            <h2 className="text-3xl font-bold tracking-tight mb-6">{category.name}</h2>
+                            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                {categoryProducts.map(product => (
+                                    <Card key={product.id} onClick={() => handleProductClick(product)} className="cursor-pointer hover:shadow-lg transition-shadow duration-300 flex flex-col">
+                                        <CardContent className="p-0">
+                                            <div className="relative h-48 w-full">
+                                                <Image 
+                                                    src={images[product.imageId]?.filePath || 'https://placehold.co/600x400.png'} 
+                                                    alt={product.name} 
+                                                    fill 
+                                                    objectFit="cover" 
+                                                    className="rounded-t-lg" 
+                                                    data-ai-hint="pizza food" />
+                                            </div>
+                                        </CardContent>
+                                        <div className="p-4 flex-grow flex flex-col">
+                                            <h3 className="text-xl font-semibold mb-2">{product.name}</h3>
+                                            <p className="text-muted-foreground text-sm mb-4 flex-grow">{product.description}</p>
+                                            <div className="flex justify-between items-center">
+                                                <p className="text-lg font-bold text-primary">{formatCurrency(product.price)}</p>
+                                                <Button onClick={(e) => { e.stopPropagation(); handleProductClick(product); }}>
+                                                    Adicionar
+                                                </Button>
+                                            </div>
                                         </div>
-                                    </CardHeader>
-                                    <CardContent className="p-4 flex-grow flex flex-col">
-                                        <h3 className="text-xl font-semibold mb-2">{product.name}</h3>
-                                        <p className="text-muted-foreground text-sm mb-4 flex-grow">{product.description}</p>
-                                        <div className="flex justify-between items-center">
-                                            <p className="text-lg font-bold text-primary">{formatCurrency(product.price)}</p>
-                                            <Button onClick={(e) => { e.stopPropagation(); handleProductClick(product); }}>
-                                                Adicionar
-                                            </Button>
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                            ))}
-                        </div>
-                    </section>
-                ))}
+                                    </Card>
+                                ))}
+                            </div>
+                        </section>
+                    )
+                })}
             </main>
              {cart.length > 0 && (
                 <footer className="fixed bottom-0 left-0 right-0 bg-background border-t p-4 shadow-lg z-50">
@@ -276,9 +422,12 @@ export default function MenuPage() {
                         </div>
                         <DialogContent className="sm:max-w-lg">
                             <DialogHeader>
-                                <DialogTitle>Seu Carrinho</DialogTitle>
+                                <DialogTitle>Seu Pedido</DialogTitle>
                             </DialogHeader>
                             <div className="max-h-[60vh] overflow-y-auto p-1 -mr-4 pr-4 space-y-4">
+                                {cart.length === 0 ? (
+                                     <p className="text-muted-foreground text-center py-8">Seu carrinho está vazio.</p>
+                                ) : (
                                 <div>
                                     {cart.map((item, index) => (
                                         <div key={index} className="mb-2">
@@ -296,13 +445,12 @@ export default function MenuPage() {
                                         <Separator className="my-2" />
                                         </div>
                                     ))}
-                                    {cart.length === 0 && <p className="text-muted-foreground text-center py-8">Seu carrinho está vazio.</p>}
                                 </div>
-
+                                )}
                                 <div className="space-y-4">
                                      <Separator />
                                      <div>
-                                        <h3 className="text-lg font-semibold mb-2">Dados da Entrega</h3>
+                                        <h3 className="text-lg font-semibold mb-2">Dados para {restaurant?.delivery ? 'Entrega' : 'Retirada'}</h3>
                                         <div className="space-y-2">
                                              <Label htmlFor="customer-name">Seu Nome</Label>
                                              <Input 
@@ -311,13 +459,17 @@ export default function MenuPage() {
                                                 value={customerName}
                                                 onChange={(e) => setCustomerName(e.target.value)}
                                             />
+                                            {restaurant?.delivery && (
+                                             <>
                                              <Label htmlFor="address">Endereço Completo</Label>
                                              <Textarea 
                                                 id="address" 
                                                 placeholder="Ex: Rua das Flores, 123, Bairro, Cidade - SP, 01234-567" 
                                                 value={deliveryAddress}
                                                 onChange={(e) => setDeliveryAddress(e.target.value)}
-                                            />
+                                             />
+                                             </>
+                                            )}
                                         </div>
                                      </div>
                                      <div>
@@ -359,10 +511,10 @@ export default function MenuPage() {
                                     size="lg" 
                                     className="w-full bg-green-500 hover:bg-green-600" 
                                     onClick={sendOrderToWhatsApp} 
-                                    disabled={cart.length === 0 || !customerName || !deliveryAddress || !paymentMethod}
+                                    disabled={cart.length === 0 || !customerName || (restaurant?.delivery && !deliveryAddress) || !paymentMethod || !isRestaurantOpen}
                                 >
                                     <ShoppingCart className="mr-2" />
-                                    Finalizar Pedido no WhatsApp
+                                    {isRestaurantOpen ? 'Finalizar Pedido no WhatsApp' : 'Restaurante Fechado'}
                                 </Button>
                             </DialogFooter>
                         </DialogContent>
@@ -376,17 +528,23 @@ export default function MenuPage() {
             <>
                 <DialogHeader>
                     <div className="relative h-48 w-full -mx-6 -mt-6 mb-4">
-                        <Image src={selectedProduct.image} alt={selectedProduct.name} fill objectFit="cover" className="rounded-t-lg" data-ai-hint="pizza food"/>
+                        <Image 
+                          src={images[selectedProduct.imageId]?.filePath || 'https://placehold.co/600x400.png'} 
+                          alt={selectedProduct.name} 
+                          fill 
+                          objectFit="cover" 
+                          className="rounded-t-lg" 
+                          data-ai-hint="pizza food"/>
                     </div>
                     <DialogTitle className="text-2xl">{selectedProduct.name}</DialogTitle>
                     <DialogDescription>{selectedProduct.description}</DialogDescription>
                 </DialogHeader>
                 
-                {selectedProduct.addons && selectedProduct.addons.length > 0 && (
+                {getAddonsForProduct(selectedProduct).length > 0 && (
                     <div className="my-4">
                         <h4 className="font-semibold mb-2">Adicionais</h4>
                         <div className="space-y-2 max-h-32 overflow-y-auto pr-2">
-                            {selectedProduct.addons.map(addon => (
+                            {getAddonsForProduct(selectedProduct).map(addon => (
                                 <div key={addon.id} className="flex items-center justify-between p-2 rounded-md border">
                                     <div>
                                         <Label htmlFor={`addon-${addon.id}`}>{addon.name}</Label>
