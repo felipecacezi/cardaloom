@@ -83,11 +83,11 @@ export default function SettingsPage() {
         shouldUnregister: false // Keep form values even if fields are conditionally rendered
     };
 
-    const companyForm = useForm<z.infer<typeof companyFormSchema>>({ resolver: zodResolver(companyFormSchema), ...formOptions });
-    const userForm = useForm<z.infer<typeof userFormSchema>>({ resolver: zodResolver(userFormSchema), ...formOptions });
-    const addressForm = useForm<z.infer<typeof addressFormSchema>>({ resolver: zodResolver(addressFormSchema), ...formOptions });
-    const operatingHoursForm = useForm<z.infer<typeof operatingHoursSchema>>({ resolver: zodResolver(operatingHoursSchema), ...formOptions });
-    const ordersForm = useForm<z.infer<typeof ordersFormSchema>>({ resolver: zodResolver(ordersFormSchema), ...formOptions });
+    const companyForm = useForm<z.infer<typeof companyFormSchema>>({ resolver: zodResolver(companyFormSchema), defaultValues: { restaurantName: '', cnpj: ''}, ...formOptions });
+    const userForm = useForm<z.infer<typeof userFormSchema>>({ resolver: zodResolver(userFormSchema), defaultValues: { ownerName: '', email: ''}, ...formOptions });
+    const addressForm = useForm<z.infer<typeof addressFormSchema>>({ resolver: zodResolver(addressFormSchema), defaultValues: { street: '', number: '', complement: '', neighborhood: '', city: '', state: '', zipCode: ''}, ...formOptions });
+    const operatingHoursForm = useForm<z.infer<typeof operatingHoursSchema>>({ resolver: zodResolver(operatingHoursSchema), defaultValues: { phone: '', whatsapp: '', hours: { monday: { isOpen: false, openTime: '', closeTime: ''}, tuesday: { isOpen: false, openTime: '', closeTime: ''}, wednesday: { isOpen: false, openTime: '', closeTime: ''}, thursday: { isOpen: false, openTime: '', closeTime: ''}, friday: { isOpen: false, openTime: '', closeTime: ''}, saturday: { isOpen: false, openTime: '', closeTime: ''}, sunday: { isOpen: false, openTime: '', closeTime: ''}}}, ...formOptions });
+    const ordersForm = useForm<z.infer<typeof ordersFormSchema>>({ resolver: zodResolver(ordersFormSchema), defaultValues: { delivery: false, receiveOrdersByWhatsapp: false, whatsappOrderNumber: ''}, ...formOptions });
     
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -116,9 +116,17 @@ export default function SettingsPage() {
                         setUserCnpj(cnpj);
 
                         // Populate forms with existing data
-                        companyForm.reset({ restaurantName: userData.restaurantName, cnpj: userData.cnpj });
-                        userForm.reset({ ownerName: userData.ownerName, email: currentUser.email || '' });
-                        addressForm.reset(userData.address || {});
+                        companyForm.reset({ restaurantName: userData.restaurantName || '', cnpj: userData.cnpj || '' });
+                        userForm.reset({ ownerName: userData.ownerName || '', email: currentUser.email || '' });
+                        addressForm.reset({
+                          street: userData.address?.street || '',
+                          number: userData.address?.number || '',
+                          complement: userData.address?.complement || '',
+                          neighborhood: userData.address?.neighborhood || '',
+                          city: userData.address?.city || '',
+                          state: userData.address?.state || '',
+                          zipCode: userData.address?.zipCode || '',
+                        });
                         operatingHoursForm.reset({
                             phone: userData.phone || '',
                             whatsapp: userData.whatsapp || '',
@@ -225,7 +233,7 @@ export default function SettingsPage() {
                                 )}
                             />
                         </div>
-                        <Button type="submit" disabled={isSubmitting}>{isSubmitting ? 'Salvando...' : 'Salvar Alterações'}</Button>
+                        <Button type="submit" disabled={isSubmitting}>{isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Salvar Alterações'}</Button>
                     </form>
                 </Form>
             </CardContent>
@@ -269,7 +277,7 @@ export default function SettingsPage() {
                                 )}
                             />
                         </div>
-                        <Button type="submit" disabled={isSubmitting}>{isSubmitting ? 'Salvando...' : 'Salvar Alterações'}</Button>
+                        <Button type="submit" disabled={isSubmitting}>{isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Salvar Alterações'}</Button>
                     </form>
                 </Form>
             </CardContent>
@@ -382,7 +390,7 @@ export default function SettingsPage() {
                             )}
                             />
                         </div>
-                        <Button type="submit" disabled={isSubmitting}>{isSubmitting ? 'Salvando...' : 'Salvar Endereço'}</Button>
+                        <Button type="submit" disabled={isSubmitting}>{isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Salvar Endereço'}</Button>
                     </form>
                 </Form>
             </CardContent>
@@ -484,7 +492,7 @@ export default function SettingsPage() {
                                 )}
                             />
                         </div>
-                        <Button type="submit" disabled={isSubmitting}>{isSubmitting ? 'Salvando...' : 'Salvar Horários e Contatos'}</Button>
+                        <Button type="submit" disabled={isSubmitting}>{isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Salvar Horários e Contatos'}</Button>
                     </form>
                 </Form>
             </CardContent>
@@ -566,7 +574,7 @@ export default function SettingsPage() {
                                 )}
                             />
                         )}
-                        <Button type="submit" disabled={isSubmitting}>{isSubmitting ? 'Salvando...' : 'Salvar Configurações de Pedidos'}</Button>
+                        <Button type="submit" disabled={isSubmitting}>{isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Salvar Configurações'}</Button>
                     </form>
                 </Form>
             </CardContent>
@@ -575,4 +583,5 @@ export default function SettingsPage() {
       </main>
     </>
     );
-}
+
+    
