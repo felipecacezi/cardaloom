@@ -1,9 +1,13 @@
 
 'use client';
 
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { onAuthStateChanged, User } from 'firebase/auth';
+import { ref, get, update } from 'firebase/database';
+
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,6 +17,8 @@ import { useToast } from '@/hooks/use-toast';
 import { Separator } from '@/components/ui/separator';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
+import { auth, realtimeDb } from '@/lib/firebase';
+import { Loader2 } from 'lucide-react';
 
 const companyFormSchema = z.object({
   restaurantName: z.string().min(2, { message: 'O nome do restaurante é obrigatório.' }),
@@ -59,64 +65,83 @@ const ordersFormSchema = z.object({
   whatsappOrderNumber: z.string().optional(),
 });
 
+type UserData = z.infer<typeof companyFormSchema> & 
+                z.infer<typeof userFormSchema> & 
+                { address: z.infer<typeof addressFormSchema> } &
+                z.infer<typeof operatingHoursSchema> &
+                z.infer<typeof ordersFormSchema>;
+
 
 export default function SettingsPage() {
     const { toast } = useToast();
+    const [isLoading, setIsLoading] = useState(true);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [currentUser, setCurrentUser] = useState<User | null>(null);
+    const [userCnpj, setUserCnpj] = useState<string | null>(null);
 
-    const companyForm = useForm<z.infer<typeof companyFormSchema>>({
-        resolver: zodResolver(companyFormSchema),
-        defaultValues: {
-            restaurantName: 'Cantina da Mama',
-            cnpj: '12.345.678/0001-99',
-        },
-    });
+    const formOptions = {
+        shouldUnregister: false // Keep form values even if fields are conditionally rendered
+    };
 
-    const userForm = useForm<z.infer<typeof userFormSchema>>({
-        resolver: zodResolver(userFormSchema),
-        defaultValues: {
-            ownerName: 'Maria Silva',
-            email: 'maria.silva@email.com',
-        },
-    });
-
-    const addressForm = useForm<z.infer<typeof addressFormSchema>>({
-        resolver: zodResolver(addressFormSchema),
-        defaultValues: {
-            street: 'Av. Brasil',
-            number: '123',
-            complement: 'Apto 101, Bloco B',
-            neighborhood: 'Centro',
-            city: 'São Paulo',
-            state: 'SP',
-            zipCode: '01234-567',
-        },
-    });
+    const companyForm = useForm<z.infer<typeof companyFormSchema>>({ resolver: zodResolver(companyFormSchema), ...formOptions });
+    const userForm = useForm<z.infer<typeof userFormSchema>>({ resolver: zodResolver(userFormSchema), ...formOptions });
+    const addressForm = useForm<z.infer<typeof addressFormSchema>>({ resolver: zodResolver(addressFormSchema), ...formOptions });
+    const operatingHoursForm = useForm<z.infer<typeof operatingHoursSchema>>({ resolver: zodResolver(operatingHoursSchema), ...formOptions });
+    const ordersForm = useForm<z.infer<typeof ordersFormSchema>>({ resolver: zodResolver(ordersFormSchema), ...formOptions });
     
-    const operatingHoursForm = useForm<z.infer<typeof operatingHoursSchema>>({
-        resolver: zodResolver(operatingHoursSchema),
-        defaultValues: {
-            phone: '(11) 98765-4321',
-            whatsapp: '(11) 98765-4321',
-            hours: {
-                monday: { isOpen: true, openTime: '18:00', closeTime: '23:00' },
-                tuesday: { isOpen: true, openTime: '18:00', closeTime: '23:00' },
-                wednesday: { isOpen: true, openTime: '18:00', closeTime: '23:00' },
-                thursday: { isOpen: true, openTime: '18:00', closeTime: '23:00' },
-                friday: { isOpen: true, openTime: '18:00', closeTime: '00:00' },
-                saturday: { isOpen: true, openTime: '12:00', closeTime: '00:00' },
-                sunday: { isOpen: false, openTime: '', closeTime: '' },
+    useEffect(() => {
+        const unsubscribe = onAuthStateChanged(auth, (user) => {
+            if (user) {
+                setCurrentUser(user);
+            } else {
+                setCurrentUser(null);
+                setIsLoading(false);
             }
-        }
-    });
+        });
+        return () => unsubscribe();
+    }, []);
 
-     const ordersForm = useForm<z.infer<typeof ordersFormSchema>>({
-        resolver: zodResolver(ordersFormSchema),
-        defaultValues: {
-            delivery: true,
-            receiveOrdersByWhatsapp: true,
-            whatsappOrderNumber: '(11) 91234-5678',
-        },
-    });
+    useEffect(() => {
+        if (currentUser) {
+            const usersRef = ref(realtimeDb, 'users');
+            get(usersRef).then((snapshot) => {
+                if (snapshot.exists()) {
+                    const usersData = snapshot.val();
+                    const userEntry = Object.entries(usersData).find(
+                        ([, data]) => (data as any).authUid === currentUser.uid
+                    );
+                    if (userEntry) {
+                        const cnpj = userEntry[0];
+                        const userData = userEntry[1] as UserData;
+                        setUserCnpj(cnpj);
+
+                        // Populate forms with existing data
+                        companyForm.reset({ restaurantName: userData.restaurantName, cnpj: userData.cnpj });
+                        userForm.reset({ ownerName: userData.ownerName, email: currentUser.email || '' });
+                        addressForm.reset(userData.address || {});
+                        operatingHoursForm.reset({
+                            phone: userData.phone || '',
+                            whatsapp: userData.whatsapp || '',
+                            hours: userData.hours || {}
+                        });
+                        ordersForm.reset({
+                            delivery: userData.delivery || false,
+                            receiveOrdersByWhatsapp: userData.receiveOrdersByWhatsapp || false,
+                            whatsappOrderNumber: userData.whatsappOrderNumber || ''
+                        });
+                        
+                    } else {
+                        toast({ title: "Erro", description: "Não foi possível encontrar os dados do seu restaurante.", variant: "destructive" });
+                    }
+                }
+            }).catch((error) => {
+                console.error("Error fetching user data:", error);
+                toast({ title: "Erro de Conexão", description: "Não foi possível buscar os dados do usuário.", variant: "destructive" });
+            }).finally(() => {
+                setIsLoading(false);
+            });
+        }
+    }, [currentUser, toast, companyForm, userForm, addressForm, operatingHoursForm, ordersForm]);
 
     const dayLabels: Record<(typeof weekDays)[number], string> = {
         monday: 'Segunda-feira',
@@ -128,46 +153,31 @@ export default function SettingsPage() {
         sunday: 'Domingo',
     };
 
-    function onCompanySubmit(values: z.infer<typeof companyFormSchema>) {
-        console.log('Company Data:', values);
-        toast({
-            title: "Dados da Empresa Atualizados!",
-            description: "As informações da sua empresa foram salvas com sucesso.",
-        });
+    async function handleUpdate(data: Partial<UserData>, successMessage: string) {
+        if (!userCnpj) {
+            toast({ title: "Erro", description: "Usuário não autenticado.", variant: "destructive" });
+            return;
+        }
+        setIsSubmitting(true);
+        try {
+            const userRef = ref(realtimeDb, `users/${userCnpj}`);
+            await update(userRef, data);
+            toast({ title: "Sucesso!", description: successMessage });
+        } catch (error) {
+            console.error("Failed to update data:", error);
+            toast({ title: "Erro", description: "Não foi possível salvar as alterações.", variant: "destructive" });
+        } finally {
+            setIsSubmitting(false);
+        }
     }
 
-    function onUserSubmit(values: z.infer<typeof userFormSchema>) {
-        console.log('User Data:', values);
-        toast({
-            title: "Dados do Usuário Atualizados!",
-            description: "Suas informações de perfil foram salvas com sucesso.",
-        });
+    if (isLoading) {
+      return (
+        <div className="flex h-screen w-full items-center justify-center">
+            <Loader2 className="h-8 w-8 animate-spin" />
+        </div>
+      )
     }
-
-    function onAddressSubmit(values: z.infer<typeof addressFormSchema>) {
-        console.log('Address Data:', values);
-        toast({
-            title: "Endereço Atualizado!",
-            description: "O endereço do seu estabelecimento foi salvo com sucesso.",
-        });
-    }
-    
-    function onOperatingHoursSubmit(values: z.infer<typeof operatingHoursSchema>) {
-        console.log('Operating Hours Data:', values);
-        toast({
-            title: "Informações de Funcionamento Atualizadas!",
-            description: "Os horários e contatos foram salvos com sucesso.",
-        });
-    }
-
-    function onOrdersSubmit(values: z.infer<typeof ordersFormSchema>) {
-        console.log('Orders Data:', values);
-        toast({
-            title: "Configurações de Pedidos Atualizadas!",
-            description: "As informações de pedidos foram salvas com sucesso.",
-        });
-    }
-
 
     return (
     <>
@@ -186,7 +196,7 @@ export default function SettingsPage() {
             </CardHeader>
             <CardContent>
                 <Form {...companyForm}>
-                    <form onSubmit={companyForm.handleSubmit(onCompanySubmit)} className="space-y-4">
+                    <form onSubmit={companyForm.handleSubmit((values) => handleUpdate(values, 'Dados da empresa atualizados com sucesso.'))} className="space-y-4">
                          <div className="grid md:grid-cols-2 gap-4">
                             <FormField
                                 control={companyForm.control}
@@ -195,7 +205,7 @@ export default function SettingsPage() {
                                 <FormItem>
                                     <FormLabel>Nome do Restaurante</FormLabel>
                                     <FormControl>
-                                    <Input placeholder="Ex: Cantina da Mama" {...field} />
+                                    <Input placeholder="Ex: Cantina da Mama" {...field} disabled={isSubmitting}/>
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -208,14 +218,14 @@ export default function SettingsPage() {
                                 <FormItem>
                                     <FormLabel>CNPJ</FormLabel>
                                     <FormControl>
-                                    <Input placeholder="00.000.000/0000-00" {...field} />
+                                    <Input placeholder="00.000.000/0000-00" {...field} disabled />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
                                 )}
                             />
                         </div>
-                        <Button type="submit">Salvar Alterações</Button>
+                        <Button type="submit" disabled={isSubmitting}>{isSubmitting ? 'Salvando...' : 'Salvar Alterações'}</Button>
                     </form>
                 </Form>
             </CardContent>
@@ -230,7 +240,7 @@ export default function SettingsPage() {
             </CardHeader>
             <CardContent>
                 <Form {...userForm}>
-                    <form onSubmit={userForm.handleSubmit(onUserSubmit)} className="space-y-4">
+                    <form onSubmit={userForm.handleSubmit((values) => handleUpdate(values, 'Dados do usuário atualizados com sucesso.'))} className="space-y-4">
                          <div className="grid md:grid-cols-2 gap-4">
                             <FormField
                                 control={userForm.control}
@@ -239,7 +249,7 @@ export default function SettingsPage() {
                                 <FormItem>
                                     <FormLabel>Seu Nome</FormLabel>
                                     <FormControl>
-                                    <Input placeholder="Ex: Maria Silva" {...field} />
+                                    <Input placeholder="Ex: Maria Silva" {...field} disabled={isSubmitting}/>
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -252,14 +262,14 @@ export default function SettingsPage() {
                                 <FormItem>
                                     <FormLabel>Email</FormLabel>
                                     <FormControl>
-                                    <Input type="email" placeholder="seu@email.com" {...field} />
+                                    <Input type="email" placeholder="seu@email.com" {...field} disabled />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
                                 )}
                             />
                         </div>
-                        <Button type="submit">Salvar Alterações</Button>
+                        <Button type="submit" disabled={isSubmitting}>{isSubmitting ? 'Salvando...' : 'Salvar Alterações'}</Button>
                     </form>
                 </Form>
             </CardContent>
@@ -274,7 +284,7 @@ export default function SettingsPage() {
             </CardHeader>
             <CardContent>
                 <Form {...addressForm}>
-                    <form onSubmit={addressForm.handleSubmit(onAddressSubmit)} className="space-y-4">
+                    <form onSubmit={addressForm.handleSubmit((values) => handleUpdate({ address: values }, 'Endereço atualizado com sucesso.'))} className="space-y-4">
                         <div className="grid grid-cols-3 gap-4">
                             <FormField
                             control={addressForm.control}
@@ -283,7 +293,7 @@ export default function SettingsPage() {
                                 <FormItem className="col-span-2">
                                 <FormLabel>Rua</FormLabel>
                                 <FormControl>
-                                    <Input placeholder="Ex: Av. Brasil" {...field} />
+                                    <Input placeholder="Ex: Av. Brasil" {...field} disabled={isSubmitting} />
                                 </FormControl>
                                 <FormMessage />
                                 </FormItem>
@@ -296,7 +306,7 @@ export default function SettingsPage() {
                                 <FormItem>
                                 <FormLabel>Número</FormLabel>
                                 <FormControl>
-                                    <Input placeholder="123" {...field} />
+                                    <Input placeholder="123" {...field} disabled={isSubmitting} />
                                 </FormControl>
                                 <FormMessage />
                                 </FormItem>
@@ -310,7 +320,7 @@ export default function SettingsPage() {
                             <FormItem>
                                 <FormLabel>Complemento</FormLabel>
                                 <FormControl>
-                                <Input placeholder="Apto 101, Bloco B" {...field} />
+                                <Input placeholder="Apto 101, Bloco B" {...field} disabled={isSubmitting} />
                                 </FormControl>
                                 <FormMessage />
                             </FormItem>
@@ -324,7 +334,7 @@ export default function SettingsPage() {
                                 <FormItem>
                                 <FormLabel>Bairro</FormLabel>
                                 <FormControl>
-                                    <Input placeholder="Centro" {...field} />
+                                    <Input placeholder="Centro" {...field} disabled={isSubmitting} />
                                 </FormControl>
                                 <FormMessage />
                                 </FormItem>
@@ -337,7 +347,7 @@ export default function SettingsPage() {
                                 <FormItem>
                                 <FormLabel>Cidade</FormLabel>
                                 <FormControl>
-                                    <Input placeholder="São Paulo" {...field} />
+                                    <Input placeholder="São Paulo" {...field} disabled={isSubmitting} />
                                 </FormControl>
                                 <FormMessage />
                                 </FormItem>
@@ -352,7 +362,7 @@ export default function SettingsPage() {
                                 <FormItem>
                                 <FormLabel>Estado</FormLabel>
                                 <FormControl>
-                                    <Input placeholder="SP" {...field} />
+                                    <Input placeholder="SP" {...field} disabled={isSubmitting} />
                                 </FormControl>
                                 <FormMessage />
                                 </FormItem>
@@ -365,14 +375,14 @@ export default function SettingsPage() {
                                 <FormItem>
                                 <FormLabel>CEP</FormLabel>
                                 <FormControl>
-                                    <Input placeholder="01234-567" {...field} />
+                                    <Input placeholder="01234-567" {...field} disabled={isSubmitting} />
                                 </FormControl>
                                 <FormMessage />
                                 </FormItem>
                             )}
                             />
                         </div>
-                        <Button type="submit">Salvar Endereço</Button>
+                        <Button type="submit" disabled={isSubmitting}>{isSubmitting ? 'Salvando...' : 'Salvar Endereço'}</Button>
                     </form>
                 </Form>
             </CardContent>
@@ -387,7 +397,7 @@ export default function SettingsPage() {
             </CardHeader>
             <CardContent>
                 <Form {...operatingHoursForm}>
-                    <form onSubmit={operatingHoursForm.handleSubmit(onOperatingHoursSubmit)} className="space-y-6">
+                    <form onSubmit={operatingHoursForm.handleSubmit((values) => handleUpdate(values, 'Horários e contatos atualizados com sucesso.'))} className="space-y-6">
                         <div className="space-y-4">
                             {weekDays.map((day) => {
                                 const isOpen = operatingHoursForm.watch(`hours.${day}.isOpen`);
@@ -405,6 +415,7 @@ export default function SettingsPage() {
                                                     checked={field.value}
                                                     onCheckedChange={field.onChange}
                                                     id={`is-open-${day}`}
+                                                    disabled={isSubmitting}
                                                 />
                                                 <label
                                                     htmlFor={`is-open-${day}`}
@@ -421,7 +432,7 @@ export default function SettingsPage() {
                                                 render={({ field }) => (
                                                     <FormItem>
                                                         <FormControl>
-                                                            <Input type="time" {...field} disabled={!isOpen} />
+                                                            <Input type="time" {...field} disabled={!isOpen || isSubmitting} />
                                                         </FormControl>
                                                     </FormItem>
                                                 )}
@@ -433,7 +444,7 @@ export default function SettingsPage() {
                                                 render={({ field }) => (
                                                     <FormItem>
                                                         <FormControl>
-                                                           <Input type="time" {...field} disabled={!isOpen} />
+                                                           <Input type="time" {...field} disabled={!isOpen || isSubmitting} />
                                                         </FormControl>
                                                     </FormItem>
                                                 )}
@@ -453,7 +464,7 @@ export default function SettingsPage() {
                                 <FormItem>
                                     <FormLabel>Telefone para Contato</FormLabel>
                                     <FormControl>
-                                        <Input placeholder="(99) 99999-9999" {...field} />
+                                        <Input placeholder="(99) 99999-9999" {...field} disabled={isSubmitting} />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -466,14 +477,14 @@ export default function SettingsPage() {
                                 <FormItem>
                                     <FormLabel>WhatsApp</FormLabel>
                                     <FormControl>
-                                        <Input placeholder="(99) 99999-9999" {...field} />
+                                        <Input placeholder="(99) 99999-9999" {...field} disabled={isSubmitting} />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
                                 )}
                             />
                         </div>
-                        <Button type="submit">Salvar Horários e Contatos</Button>
+                        <Button type="submit" disabled={isSubmitting}>{isSubmitting ? 'Salvando...' : 'Salvar Horários e Contatos'}</Button>
                     </form>
                 </Form>
             </CardContent>
@@ -490,7 +501,7 @@ export default function SettingsPage() {
             </CardHeader>
             <CardContent>
                 <Form {...ordersForm}>
-                    <form onSubmit={ordersForm.handleSubmit(onOrdersSubmit)} className="space-y-6">
+                    <form onSubmit={ordersForm.handleSubmit((values) => handleUpdate(values, 'Configurações de pedidos atualizadas com sucesso.'))} className="space-y-6">
                        <FormField
                             control={ordersForm.control}
                             name="delivery"
@@ -508,6 +519,7 @@ export default function SettingsPage() {
                                     <Switch
                                     checked={field.value}
                                     onCheckedChange={field.onChange}
+                                    disabled={isSubmitting}
                                     />
                                 </FormControl>
                                 </FormItem>
@@ -530,6 +542,7 @@ export default function SettingsPage() {
                                     <Switch
                                     checked={field.value}
                                     onCheckedChange={field.onChange}
+                                    disabled={isSubmitting}
                                     />
                                 </FormControl>
                                 </FormItem>
@@ -543,7 +556,7 @@ export default function SettingsPage() {
                                 <FormItem>
                                     <FormLabel>Número do WhatsApp para Pedidos</FormLabel>
                                     <FormControl>
-                                        <Input placeholder="(99) 99999-9999" {...field} />
+                                        <Input placeholder="(99) 99999-9999" {...field} disabled={isSubmitting} />
                                     </FormControl>
                                     <FormDescription>
                                         Este número será usado exclusivamente para receber os pedidos.
@@ -553,7 +566,7 @@ export default function SettingsPage() {
                                 )}
                             />
                         )}
-                        <Button type="submit">Salvar Configurações de Pedidos</Button>
+                        <Button type="submit" disabled={isSubmitting}>{isSubmitting ? 'Salvando...' : 'Salvar Configurações de Pedidos'}</Button>
                     </form>
                 </Form>
             </CardContent>
@@ -563,5 +576,3 @@ export default function SettingsPage() {
     </>
     );
 }
-
-    
