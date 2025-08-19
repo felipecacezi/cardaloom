@@ -89,6 +89,14 @@ export default function SettingsPage() {
     const operatingHoursForm = useForm<z.infer<typeof operatingHoursSchema>>({ resolver: zodResolver(operatingHoursSchema), defaultValues: { phone: '', whatsapp: '', hours: { monday: { isOpen: false, openTime: '', closeTime: ''}, tuesday: { isOpen: false, openTime: '', closeTime: ''}, wednesday: { isOpen: false, openTime: '', closeTime: ''}, thursday: { isOpen: false, openTime: '', closeTime: ''}, friday: { isOpen: false, openTime: '', closeTime: ''}, saturday: { isOpen: false, openTime: '', closeTime: ''}, sunday: { isOpen: false, openTime: '', closeTime: ''}}}, ...formOptions });
     const ordersForm = useForm<z.infer<typeof ordersFormSchema>>({ resolver: zodResolver(ordersFormSchema), defaultValues: { delivery: false, receiveOrdersByWhatsapp: false, whatsappOrderNumber: ''}, ...formOptions });
     
+    const formatPhone = (value: string) => {
+      if (!value) return ""
+      value = value.replace(/\D/g,'')
+      value = value.replace(/(\d{2})(\d)/,"($1) $2")
+      value = value.replace(/(\d)(\d{4})$/,"$1-$2")
+      return value
+    }
+
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (user) => {
             if (user) {
@@ -130,7 +138,15 @@ export default function SettingsPage() {
                         operatingHoursForm.reset({
                             phone: userData.phone || '',
                             whatsapp: userData.whatsapp || '',
-                            hours: userData.hours || {}
+                            hours: userData.hours || {
+                                monday: { isOpen: false, openTime: '', closeTime: ''},
+                                tuesday: { isOpen: false, openTime: '', closeTime: ''},
+                                wednesday: { isOpen: false, openTime: '', closeTime: ''},
+                                thursday: { isOpen: false, openTime: '', closeTime: ''},
+                                friday: { isOpen: false, openTime: '', closeTime: ''},
+                                saturday: { isOpen: false, openTime: '', closeTime: ''},
+                                sunday: { isOpen: false, openTime: '', closeTime: ''},
+                            }
                         });
                         ordersForm.reset({
                             delivery: userData.delivery || false,
@@ -472,7 +488,15 @@ export default function SettingsPage() {
                                 <FormItem>
                                     <FormLabel>Telefone para Contato</FormLabel>
                                     <FormControl>
-                                        <Input placeholder="(99) 99999-9999" {...field} disabled={isSubmitting} />
+                                        <Input 
+                                            placeholder="(99) 99999-9999" 
+                                            {...field} 
+                                            disabled={isSubmitting}
+                                            onChange={(e) => {
+                                                field.onChange(formatPhone(e.target.value))
+                                            }}
+                                            maxLength={15}
+                                        />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -485,7 +509,15 @@ export default function SettingsPage() {
                                 <FormItem>
                                     <FormLabel>WhatsApp</FormLabel>
                                     <FormControl>
-                                        <Input placeholder="(99) 99999-9999" {...field} disabled={isSubmitting} />
+                                        <Input 
+                                            placeholder="(99) 99999-9999" 
+                                            {...field} 
+                                            disabled={isSubmitting}
+                                            onChange={(e) => {
+                                                field.onChange(formatPhone(e.target.value))
+                                            }}
+                                            maxLength={15}
+                                        />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -564,7 +596,15 @@ export default function SettingsPage() {
                                 <FormItem>
                                     <FormLabel>Número do WhatsApp para Pedidos</FormLabel>
                                     <FormControl>
-                                        <Input placeholder="(99) 99999-9999" {...field} disabled={isSubmitting} />
+                                        <Input 
+                                            placeholder="(99) 99999-9999" 
+                                            {...field} 
+                                            disabled={isSubmitting}
+                                            onChange={(e) => {
+                                                field.onChange(formatPhone(e.target.value))
+                                            }}
+                                            maxLength={15}
+                                        />
                                     </FormControl>
                                     <FormDescription>
                                         Este número será usado exclusivamente para receber os pedidos.
@@ -583,5 +623,6 @@ export default function SettingsPage() {
       </main>
     </>
     );
+}
 
     
