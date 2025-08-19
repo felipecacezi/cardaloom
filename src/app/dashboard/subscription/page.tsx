@@ -103,6 +103,7 @@ export default function SubscriptionPage() {
     const unsubscribeDb = onValue(userRef, (snapshot) => {
       if (snapshot.exists()) {
         const userData = snapshot.val();
+        console.log("Dados da assinatura no Firebase:", userData); // Log para teste
         setSubscription({
             stripeCustomerId: userData.stripeCustomerId,
             stripeSubscriptionId: userData.stripeSubscriptionId,
