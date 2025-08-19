@@ -3,14 +3,15 @@
 
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { ref, get } from 'firebase/database';
 
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Plus, Minus, ShoppingCart, Clock, Loader2 } from 'lucide-react';
+import { Plus, Minus, ShoppingCart, Clock, Loader2, Search, Utensils } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -27,12 +28,14 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Input } from '@/components/ui/input';
 import { realtimeDb } from '@/lib/firebase';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Logo } from '@/components/logo';
 
 type Restaurant = {
-  name: string;
-  operatingHours: Record<string, { isOpen: boolean; openTime: string; closeTime: string }>;
-  whatsappNumber: string;
-  delivery: boolean;
+  cnpj: string;
+  restaurantName: string;
+  hours?: Record<string, { isOpen: boolean; openTime: string; closeTime: string }>;
+  whatsappOrderNumber?: string;
+  delivery?: boolean;
 };
 
 type Category = { id: string; name: string };
@@ -69,10 +72,99 @@ const formatCurrency = (value: number) => {
     return (value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 };
 
-export default function MenuPage() {
-    const searchParams = useSearchParams();
-    const restaurantId = searchParams.get('id');
+function RestaurantSearchPage() {
+    const [searchQuery, setSearchQuery] = useState('');
+    const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
+    const [isLoading, setIsLoading] = useState(false);
+    const [hasSearched, setHasSearched] = useState(false);
 
+    const handleSearch = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!searchQuery.trim()) return;
+        
+        setIsLoading(true);
+        setHasSearched(true);
+        try {
+            const usersRef = ref(realtimeDb, 'users');
+            const snapshot = await get(usersRef);
+            if (snapshot.exists()) {
+                const usersData = snapshot.val();
+                const allRestaurants: Restaurant[] = Object.keys(usersData).map(cnpj => ({
+                    cnpj,
+                    ...usersData[cnpj]
+                }));
+                const filtered = allRestaurants.filter(r => 
+                    r.restaurantName.toLowerCase().includes(searchQuery.toLowerCase())
+                );
+                setRestaurants(filtered);
+            } else {
+                setRestaurants([]);
+            }
+        } catch (error) {
+            console.error("Error searching restaurants:", error);
+            setRestaurants([]);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    return (
+        <div className="min-h-screen bg-muted/20 flex flex-col items-center">
+             <header className="w-full p-4 border-b bg-background">
+                <div className="container mx-auto flex justify-between items-center">
+                    <Logo />
+                    <Button asChild variant="outline">
+                        <Link href="/login">Área do Restaurante</Link>
+                    </Button>
+                </div>
+            </header>
+            <main className="container mx-auto px-4 py-12 flex-grow flex flex-col items-center text-center">
+                <Utensils className="h-16 w-16 text-primary mb-4" />
+                <h1 className="text-4xl font-bold tracking-tight mb-2">Encontre um Restaurante</h1>
+                <p className="text-lg text-muted-foreground mb-8">Digite o nome do restaurante que você está procurando.</p>
+
+                <form onSubmit={handleSearch} className="w-full max-w-lg flex gap-2">
+                    <Input 
+                        type="search"
+                        placeholder="Ex: Cantina da Mama"
+                        className="flex-grow"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                    />
+                    <Button type="submit" disabled={isLoading}>
+                        {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
+                        Buscar
+                    </Button>
+                </form>
+
+                <div className="w-full max-w-lg mt-8">
+                    {isLoading ? (
+                         <Loader2 className="mx-auto h-8 w-8 animate-spin text-primary" />
+                    ) : hasSearched ? (
+                         restaurants.length > 0 ? (
+                            <div className="space-y-4 text-left">
+                                {restaurants.map(resto => (
+                                    <Link key={resto.cnpj} href={`/menu?id=${resto.cnpj}`}>
+                                        <Card className="hover:bg-accent hover:shadow-md transition-all">
+                                            <CardHeader>
+                                                <CardTitle>{resto.restaurantName}</CardTitle>
+                                            </CardHeader>
+                                        </Card>
+                                    </Link>
+                                ))}
+                            </div>
+                        ) : (
+                            <p className="text-muted-foreground">Nenhum restaurante encontrado com esse nome.</p>
+                        )
+                    ) : null}
+                </div>
+            </main>
+        </div>
+    );
+}
+
+
+function MenuDisplayPage({ restaurantId }: { restaurantId: string }) {
     const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
     const [categories, setCategories] = useState<Category[]>([]);
     const [products, setProducts] = useState<Product[]>([]);
@@ -97,7 +189,7 @@ export default function MenuPage() {
 
     useEffect(() => {
         if (!restaurantId) {
-            setError("ID do restaurante não fornecido. Adicione '?id=SEU_CNPJ' à URL.");
+            setError("ID do restaurante não fornecido.");
             setIsLoading(false);
             return;
         }
@@ -126,9 +218,10 @@ export default function MenuPage() {
 
                 const userData = userSnap.val();
                 setRestaurant({
-                    name: userData.restaurantName,
-                    operatingHours: userData.hours,
-                    whatsappNumber: userData.whatsappOrderNumber,
+                    cnpj: restaurantId,
+                    restaurantName: userData.restaurantName,
+                    hours: userData.hours,
+                    whatsappOrderNumber: userData.whatsappOrderNumber,
                     delivery: userData.delivery,
                 });
 
@@ -190,7 +283,7 @@ export default function MenuPage() {
     const totalCartPrice = cart.reduce((acc, item) => acc + item.totalPrice, 0);
 
      const generateWhatsAppMessage = () => {
-        let message = `Olá, ${restaurant?.name}! Gostaria de fazer o seguinte pedido:\n\n`;
+        let message = `Olá, ${restaurant?.restaurantName}! Gostaria de fazer o seguinte pedido:\n\n`;
 
         cart.forEach(item => {
             message += `*${item.quantity}x ${item.product.name}* (${formatCurrency(item.product.price)})\n`;
@@ -227,22 +320,22 @@ export default function MenuPage() {
     };
 
     const sendOrderToWhatsApp = () => {
-        if (!restaurant?.whatsappNumber) {
+        if (!restaurant?.whatsappOrderNumber) {
             alert('Número do WhatsApp para pedidos não configurado.');
             return;
         };
         const message = generateWhatsAppMessage();
-        const whatsappUrl = `https://wa.me/${restaurant.whatsappNumber.replace(/\D/g, '')}?text=${message}`;
+        const whatsappUrl = `https://wa.me/${restaurant.whatsappOrderNumber.replace(/\D/g, '')}?text=${message}`;
         window.open(whatsappUrl, '_blank');
     };
 
     const checkRestaurantOpen = () => {
-        if (!restaurant?.operatingHours) return false;
+        if (!restaurant?.hours) return false;
         const today = new Date();
         const dayOfWeek = today.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
         const currentTime = today.getHours() * 60 + today.getMinutes();
         
-        const schedule = restaurant.operatingHours[dayOfWeek];
+        const schedule = restaurant.hours[dayOfWeek];
 
         if (!schedule || !schedule.isOpen) {
             return false;
@@ -254,11 +347,9 @@ export default function MenuPage() {
         const openTimeInMinutes = openHour * 60 + openMinute;
         let closeTimeInMinutes = closeHour * 60 + closeMinute;
         
-        // Handle overnight closing times (e.g., 18:00 - 02:00)
         if (closeTimeInMinutes < openTimeInMinutes) {
-            closeTimeInMinutes += 24 * 60; // Add 24 hours to the closing time
+            closeTimeInMinutes += 24 * 60; 
             if(currentTime < openTimeInMinutes) {
-               // Adjust current time if it's past midnight
                return (currentTime + 24*60) < closeTimeInMinutes;
             }
         }
@@ -313,11 +404,6 @@ export default function MenuPage() {
         return addons.filter(addon => productAddonIds.includes(addon.id));
     };
     
-    const getProductCategoryName = (product: Product) => {
-        const category = categories.find(c => c.id === product.category);
-        return category ? category.name : 'Sem Categoria';
-    };
-
     return (
     <Dialog open={isProductDialogOpen} onOpenChange={setIsProductDialogOpen}>
         <div className="min-h-screen bg-muted/20">
@@ -332,7 +418,7 @@ export default function MenuPage() {
                 />
                 <div className="absolute inset-0 bg-black/50 z-10" />
                 <div className="container mx-auto px-4 absolute inset-0 z-20 flex flex-col justify-center items-center text-center text-white">
-                    <h1 className="text-4xl md:text-6xl font-bold drop-shadow-lg">{restaurant?.name}</h1>
+                    <h1 className="text-4xl md:text-6xl font-bold drop-shadow-lg">{restaurant?.restaurantName}</h1>
                      <div className="flex items-center gap-4 mt-2">
                         {isRestaurantOpen ? (
                             <Badge variant="default" className="bg-green-500 hover:bg-green-600 text-base">Aberto</Badge>
@@ -351,7 +437,7 @@ export default function MenuPage() {
                                     <DialogTitle className="text-center">Horários de Funcionamento</DialogTitle>
                                 </DialogHeader>
                                 <div className="space-y-2">
-                                    {restaurant?.operatingHours && Object.entries(restaurant.operatingHours).map(([day, hours]) => (
+                                    {restaurant?.hours && Object.entries(restaurant.hours).map(([day, hours]) => (
                                         <div key={day} className="flex justify-between text-sm">
                                             <span className="font-medium">{weekDayLabels[day]}:</span>
                                             <span>
@@ -585,4 +671,13 @@ export default function MenuPage() {
     );
 }
 
-    
+export default function MenuPage() {
+    const searchParams = useSearchParams();
+    const restaurantId = searchParams.get('id');
+
+    if (restaurantId) {
+        return <MenuDisplayPage restaurantId={restaurantId} />;
+    }
+
+    return <RestaurantSearchPage />;
+}
