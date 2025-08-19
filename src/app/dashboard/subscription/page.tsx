@@ -5,16 +5,18 @@ import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { ref, get, onValue } from 'firebase/database';
+import type Stripe from 'stripe';
 
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { CheckCircle, ArrowRight, Loader2, Star } from 'lucide-react';
+import { CheckCircle, ArrowRight, Loader2, Star, ExternalLink } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { auth, realtimeDb } from '@/lib/firebase';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 type SubscriptionData = {
   stripeCustomerId?: string;
@@ -36,6 +38,106 @@ const proPlan = {
       'Estatísticas avançadas (em breve)',
     ],
 };
+
+const formatCurrency = (amount: number, currency: string = 'BRL') => {
+    return (amount / 100).toLocaleString('pt-BR', {
+        style: 'currency',
+        currency: currency,
+    });
+};
+
+const formatDate = (timestamp: number) => {
+    return new Date(timestamp * 1000).toLocaleDateString('pt-BR');
+};
+
+
+function InvoiceHistory({ cnpj }: { cnpj: string }) {
+    const [invoices, setInvoices] = useState<Stripe.Invoice[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const { toast } = useToast();
+
+    useEffect(() => {
+        const fetchInvoices = async () => {
+            if (!cnpj) return;
+            setIsLoading(true);
+            try {
+                const response = await fetch('/api/stripe/invoices', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ cnpj }),
+                });
+                if (!response.ok) throw new Error('Falha ao buscar faturas.');
+                const { invoices: fetchedInvoices } = await response.json();
+                setInvoices(fetchedInvoices);
+            } catch (error: any) {
+                toast({
+                    title: 'Erro ao buscar histórico',
+                    description: error.message,
+                    variant: 'destructive',
+                });
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        fetchInvoices();
+    }, [cnpj, toast]);
+
+    if (isLoading) {
+        return (
+            <div className="space-y-2">
+                <Skeleton className="h-8 w-full" />
+                <Skeleton className="h-8 w-full" />
+                <Skeleton className="h-8 w-full" />
+            </div>
+        )
+    }
+
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle>Histórico de Pagamentos</CardTitle>
+                <CardDescription>Aqui está o seu histórico de faturas recentes.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead>Data</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead className="text-right">Valor</TableHead>
+                            <TableHead className="text-right">Fatura</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {invoices.length > 0 ? invoices.map((invoice) => (
+                            <TableRow key={invoice.id}>
+                                <TableCell>{formatDate(invoice.created)}</TableCell>
+                                <TableCell>
+                                    <Badge variant={invoice.status === 'paid' ? 'default' : 'secondary'}>
+                                        {invoice.status === 'paid' ? 'Paga' : invoice.status}
+                                    </Badge>
+                                </TableCell>
+                                <TableCell className="text-right">{formatCurrency(invoice.total, invoice.currency)}</TableCell>
+                                <TableCell className="text-right">
+                                    <Button asChild variant="outline" size="sm">
+                                        <a href={invoice.hosted_invoice_url ?? '#'} target="_blank" rel="noopener noreferrer">
+                                            Ver Fatura <ExternalLink className="ml-2 h-4 w-4" />
+                                        </a>
+                                    </Button>
+                                </TableCell>
+                            </TableRow>
+                        )) : (
+                            <TableRow>
+                                <TableCell colSpan={4} className="text-center">Nenhuma fatura encontrada.</TableCell>
+                            </TableRow>
+                        )}
+                    </TableBody>
+                </Table>
+            </CardContent>
+        </Card>
+    );
+}
+
 
 export default function SubscriptionPage() {
   const [isLoading, setIsLoading] = useState(true);
@@ -121,10 +223,8 @@ export default function SubscriptionPage() {
     }
     setIsRedirecting(true);
     try {
-        const isSubscribed = subscription?.stripeSubscriptionId && subscription?.stripeSubscriptionStatus === 'active';
-        const endpoint = isSubscribed ? '/api/stripe/customer-portal' : '/api/stripe/checkout-session';
-
-        const body = isSubscribed ? { cnpj: userCnpj } : { priceId: proPlan.priceId, cnpj: userCnpj };
+        const endpoint = '/api/stripe/checkout-session';
+        const body = { priceId: proPlan.priceId, cnpj: userCnpj };
 
         const res = await fetch(endpoint, {
             method: 'POST',
@@ -154,52 +254,45 @@ export default function SubscriptionPage() {
   };
 
   const renderCurrentPlan = () => {
-    // If user has an active subscription, show the management card.
     if (subscription?.stripeSubscriptionStatus === 'active') {
         const renewalDate = subscription.stripeCurrentPeriodEnd 
           ? new Date(subscription.stripeCurrentPeriodEnd * 1000).toLocaleDateString('pt-BR')
           : 'N/A';
           
         return (
-          <Card>
-            <CardHeader>
-              <div className="flex justify-between items-start">
-                  <div>
-                    <CardTitle>Seu Plano Atual</CardTitle>
-                    <CardDescription>Próxima renovação em {renewalDate}.</CardDescription>
-                  </div>
-                   <Badge variant="secondary" className="text-base bg-green-100 text-green-800 border-green-300">
-                    <Star className="mr-2 h-4 w-4 text-yellow-500 fill-current" />
-                    {proPlan.name}
-                   </Badge>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <p className="text-3xl font-bold">{proPlan.price}</p>
-                <ul className="space-y-2 text-muted-foreground">
-                  {proPlan.features.map((feature, index) => (
-                    <li key={index} className="flex items-center gap-2">
-                      <CheckCircle className="h-5 w-5 text-green-500" />
-                      <span>{feature}</span>
-                    </li>
-                  ))}
-                </ul>
-                 <Separator className="my-4" />
-                <Button className="w-full justify-between" onClick={handleSubscriptionAction} disabled={isRedirecting}>
-                    {isRedirecting ? (
-                        <> <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Redirecionando... </>
-                    ) : (
-                        <> <span>Gerenciar Assinatura</span> <ArrowRight /> </>
-                    )}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+         <div className="space-y-6">
+            <Card>
+                <CardHeader>
+                <div className="flex justify-between items-start">
+                    <div>
+                        <CardTitle>Seu Plano Atual</CardTitle>
+                        <CardDescription>Próxima renovação em {renewalDate}.</CardDescription>
+                    </div>
+                    <Badge variant="secondary" className="text-base bg-green-100 text-green-800 border-green-300">
+                        <Star className="mr-2 h-4 w-4 text-yellow-500 fill-current" />
+                        {proPlan.name}
+                    </Badge>
+                </div>
+                </CardHeader>
+                <CardContent>
+                    <div className="space-y-4">
+                        <p className="text-3xl font-bold">{proPlan.price}</p>
+                        <ul className="space-y-2 text-muted-foreground">
+                        {proPlan.features.map((feature, index) => (
+                            <li key={index} className="flex items-center gap-2">
+                            <CheckCircle className="h-5 w-5 text-green-500" />
+                            <span>{feature}</span>
+                            </li>
+                        ))}
+                        </ul>
+                    </div>
+                </CardContent>
+            </Card>
+            {userCnpj && <InvoiceHistory cnpj={userCnpj} />}
+         </div>
         );
     }
     
-    // If not active, show the upgrade card.
     return (
        <Card className="border-primary border-2 shadow-lg">
            <CardHeader>
