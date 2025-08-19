@@ -5,6 +5,9 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useState } from 'react';
+
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,6 +15,9 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import { Logo } from '@/components/logo';
 import { useToast } from '@/hooks/use-toast';
+import { db, auth } from '@/lib/firebase';
+import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { ref, set, get } from 'firebase/database';
 
 const formSchema = z.object({
   restaurantName: z.string().min(2, { message: 'O nome do restaurante é obrigatório.' }),
@@ -19,17 +25,20 @@ const formSchema = z.object({
   cnpj: z.string().min(14, { message: 'Por favor, insira um CNPJ válido.' }),
   email: z.string().email({ message: 'Por favor, insira um email válido.' }),
   password: z.string().min(8, { message: 'A senha deve ter pelo menos 8 caracteres.' }),
+  zipCode: z.string().min(8, { message: 'O CEP é obrigatório.' }),
   street: z.string().min(2, { message: 'O nome da rua é obrigatório.' }),
   number: z.string().min(1, { message: 'O número é obrigatório.' }),
   complement: z.string().optional(),
   neighborhood: z.string().min(2, { message: 'O bairro é obrigatório.' }),
   city: z.string().min(2, { message: 'A cidade é obrigatória.' }),
   state: z.string().min(2, { message: 'O estado é obrigatório.' }),
-  zipCode: z.string().min(8, { message: 'O CEP é obrigatório.' }),
 });
 
 export default function SignUpPage() {
   const { toast } = useToast();
+  const router = useRouter();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -48,13 +57,79 @@ export default function SignUpPage() {
     },
   });
 
-  function onSubmit(values: z.infer<typeof formSchema>) {
-    console.log(values);
-    toast({
-      title: "Conta Criada com Sucesso!",
-      description: "Seu cadastro foi realizado. Você será redirecionado em breve.",
-    });
-    form.reset();
+  const handleCepBlur = async (cep: string) => {
+    const cleanedCep = cep.replace(/\D/g, '');
+    if (cleanedCep.length !== 8) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`https://viacep.com.br/ws/${cleanedCep}/json/`);
+      if (!response.ok) {
+          throw new Error('CEP não encontrado');
+      }
+      const data = await response.json();
+      if (data.erro) {
+        toast({
+          title: "CEP não encontrado",
+          description: "Por favor, verifique o CEP digitado.",
+          variant: "destructive",
+        });
+      } else {
+        form.setValue('street', data.logradouro);
+        form.setValue('neighborhood', data.bairro);
+        form.setValue('city', data.localidade);
+        form.setValue('state', data.uf);
+        toast({
+            title: "Endereço encontrado!",
+            description: "Os campos de endereço foram preenchidos.",
+        });
+      }
+    } catch (error) {
+       toast({
+          title: "Erro ao buscar CEP",
+          description: "Não foi possível buscar o endereço. Por favor, preencha manualmente.",
+          variant: "destructive",
+        });
+    }
+  };
+
+
+ async function onSubmit(values: z.infer<typeof formSchema>) {
+    setIsSubmitting(true);
+    try {
+      const response = await fetch('/api/sign-in', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(values),
+      });
+      
+      const responseData = await response.json();
+
+      if (response.ok) {
+        toast({
+          title: "Conta Criada com Sucesso!",
+          description: "Seu cadastro foi realizado. Você será redirecionado para o painel.",
+        });
+        router.push('/dashboard');
+      } else {
+        toast({
+          title: "Erro no Cadastro",
+          description: responseData.error || "Ocorreu um erro ao criar sua conta.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Erro no Cadastro",
+        description: "Não foi possível conectar ao servidor. Tente novamente.",
+        variant: "destructive",
+      });
+    } finally {
+        setIsSubmitting(false);
+    }
   }
 
   return (
@@ -135,6 +210,25 @@ export default function SignUpPage() {
                   </FormItem>
                 )}
               />
+              
+              <FormField
+                control={form.control}
+                name="zipCode"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>CEP</FormLabel>
+                    <FormControl>
+                      <Input 
+                        placeholder="01234-567" 
+                        {...field} 
+                        onBlur={(e) => handleCepBlur(e.target.value)}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
                <div className="grid grid-cols-3 gap-4">
                 <FormField
                   control={form.control}
@@ -218,22 +312,9 @@ export default function SignUpPage() {
                     </FormItem>
                   )}
                 />
-                <FormField
-                  control={form.control}
-                  name="zipCode"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>CEP</FormLabel>
-                      <FormControl>
-                        <Input placeholder="01234-567" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
               </div>
-              <Button type="submit" className="w-full">
-                Criar Conta
+              <Button type="submit" className="w-full" disabled={isSubmitting}>
+                {isSubmitting ? 'Criando conta...' : 'Criar Conta'}
               </Button>
             </form>
           </Form>
