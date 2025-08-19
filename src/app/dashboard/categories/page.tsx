@@ -5,11 +5,13 @@ import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { ref, onValue, push, set, remove, get, query, orderByChild, equalTo } from 'firebase/database';
+import { onAuthStateChanged, User } from 'firebase/auth';
 
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { PlusCircle, MoreVertical, Edit, Trash2, Search } from 'lucide-react';
+import { PlusCircle, MoreVertical, Edit, Trash2, Search, Loader2 } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -49,25 +51,13 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
+import { auth, realtimeDb } from '@/lib/firebase';
 
 type Category = {
-  id: number;
+  id: string;
   name: string;
   description: string;
 };
-
-const categoriesData: Category[] = [
-  { id: 1, name: 'Pizzas Salgadas', description: 'As melhores pizzas com ingredientes frescos e selecionados.' },
-  { id: 2, name: 'Pizzas Doces', description: 'Combinações surpreendentes para adoçar o seu paladar.' },
-  { id: 3, name: 'Bebidas', description: 'Refrigerantes, sucos naturais, cervejas e águas.' },
-  { id: 4, name: 'Sobremesas', description: 'Deliciosas sobremesas caseiras para finalizar com chave de ouro.' },
-  { id: 5, name: 'Entradas e Porções', description: 'Aperitivos perfeitos para começar ou compartilhar.' },
-  { id: 6, name: 'Combos Especiais', description: 'Ofertas imperdíveis para toda a família e amigos.' },
-  { id: 7, name: 'Lanches', description: 'Sanduíches e hambúrgueres artesanais.' },
-  { id: 8, name: 'Opções Vegetarianas', description: 'Pratos deliciosos sem carne.' },
-  { id: 9, name: 'Saladas', description: 'Opções leves e saudáveis.' },
-  { id: 10, name: 'Massas', description: 'Receitas italianas clássicas e da casa.' },
-];
 
 const formSchema = z.object({
   name: z.string().min(2, { message: 'O nome da categoria é obrigatório.' }),
@@ -75,13 +65,17 @@ const formSchema = z.object({
 });
 
 export default function CategoriesPage() {
-  const [categories, setCategories] = useState(categoriesData);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [deletingCategory, setDeletingCategory] = useState<Category | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [userCnpj, setUserCnpj] = useState<string | null>(null);
+
 
   const itemsPerPage = 5;
   const { toast } = useToast();
@@ -94,6 +88,54 @@ export default function CategoriesPage() {
   const editForm = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
   });
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        setCurrentUser(user);
+      } else {
+        // Handle unauthenticated state if necessary
+        setIsLoading(false);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (currentUser) {
+      const usersRef = ref(realtimeDb, 'users');
+      const userQuery = query(usersRef, orderByChild('authUid'), equalTo(currentUser.uid));
+      get(userQuery).then((snapshot) => {
+        if (snapshot.exists()) {
+          const userData = snapshot.val();
+          const cnpj = Object.keys(userData)[0];
+          setUserCnpj(cnpj);
+        } else {
+          setIsLoading(false);
+        }
+      });
+    }
+  }, [currentUser]);
+
+  useEffect(() => {
+    if (userCnpj) {
+      const categoriesRef = ref(realtimeDb, `categories/${userCnpj}`);
+      const unsubscribe = onValue(categoriesRef, (snapshot) => {
+        const data = snapshot.val();
+        const loadedCategories: Category[] = [];
+        if (data) {
+          for (const key in data) {
+            loadedCategories.push({ id: key, ...data[key] });
+          }
+        }
+        setCategories(loadedCategories);
+        setIsLoading(false);
+      });
+
+      return () => unsubscribe();
+    }
+  }, [userCnpj]);
+
 
   useEffect(() => {
     if (editingCategory) {
@@ -121,33 +163,49 @@ export default function CategoriesPage() {
 
   const paginate = (pageNumber: number) => setCurrentPage(pageNumber);
 
-  function onCreateSubmit(values: z.infer<typeof formSchema>) {
-    const newCategory = {
-      id: Date.now(), 
-      name: values.name,
-      description: values.description || ''
-    };
-    setCategories(prev => [...prev, newCategory]);
-    toast({
-      title: "Categoria Criada!",
-      description: `A categoria "${values.name}" foi adicionada com sucesso.`,
-    });
-    createForm.reset();
-    setIsCreateModalOpen(false);
+  async function onCreateSubmit(values: z.infer<typeof formSchema>) {
+    if (!userCnpj) {
+        toast({ title: "Erro", description: "Usuário não identificado.", variant: "destructive" });
+        return;
+    }
+    try {
+        const categoriesRef = ref(realtimeDb, `categories/${userCnpj}`);
+        const newCategoryRef = push(categoriesRef);
+        await set(newCategoryRef, {
+            name: values.name,
+            description: values.description || ''
+        });
+        
+        toast({
+            title: "Categoria Criada!",
+            description: `A categoria "${values.name}" foi adicionada com sucesso.`,
+        });
+        createForm.reset();
+        setIsCreateModalOpen(false);
+
+    } catch (error) {
+         toast({ title: "Erro ao criar", description: "Não foi possível salvar a categoria.", variant: "destructive" });
+    }
   }
 
-  function onEditSubmit(values: z.infer<typeof formSchema>) {
-    if (!editingCategory) return;
+  async function onEditSubmit(values: z.infer<typeof formSchema>) {
+    if (!editingCategory || !userCnpj) return;
+    try {
+        const categoryRef = ref(realtimeDb, `categories/${userCnpj}/${editingCategory.id}`);
+        await set(categoryRef, {
+             name: values.name,
+             description: values.description || ''
+        });
 
-    setCategories(prev => prev.map(c => 
-      c.id === editingCategory.id ? { ...c, name: values.name, description: values.description || '' } : c
-    ));
-    toast({
-      title: "Categoria Atualizada!",
-      description: `A categoria "${values.name}" foi atualizada com sucesso.`,
-    });
-    setIsEditModalOpen(false);
-    setEditingCategory(null);
+        toast({
+            title: "Categoria Atualizada!",
+            description: `A categoria "${values.name}" foi atualizada com sucesso.`,
+        });
+        setIsEditModalOpen(false);
+        setEditingCategory(null);
+    } catch(error) {
+        toast({ title: "Erro ao atualizar", description: "Não foi possível salvar as alterações.", variant: "destructive" });
+    }
   }
 
   const handleEditClick = (category: Category) => {
@@ -159,15 +217,21 @@ export default function CategoriesPage() {
     setDeletingCategory(category);
   };
 
-  const confirmDelete = () => {
-    if (!deletingCategory) return;
+  const confirmDelete = async () => {
+    if (!deletingCategory || !userCnpj) return;
+    try {
+        const categoryRef = ref(realtimeDb, `categories/${userCnpj}/${deletingCategory.id}`);
+        await remove(categoryRef);
 
-    setCategories(prev => prev.filter(c => c.id !== deletingCategory.id));
-    toast({
-      title: "Categoria Excluída!",
-      description: `A categoria "${deletingCategory.name}" foi removida com sucesso.`,
-    });
-    setDeletingCategory(null);
+        toast({
+            title: "Categoria Excluída!",
+            description: `A categoria "${deletingCategory.name}" foi removida com sucesso.`,
+        });
+        setDeletingCategory(null);
+    } catch(error) {
+        toast({ title: "Erro ao excluir", description: "Não foi possível remover a categoria.", variant: "destructive" });
+        setDeletingCategory(null);
+    }
   }
 
   return (
@@ -253,6 +317,11 @@ export default function CategoriesPage() {
             </div>
           </CardHeader>
           <CardContent>
+            {isLoading ? (
+                <div className="flex justify-center items-center h-48">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                </div>
+            ) : (
             <Table>
               <TableHeader>
                 <TableRow>
@@ -262,7 +331,7 @@ export default function CategoriesPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {currentCategories.map((category) => (
+                {currentCategories.length > 0 ? currentCategories.map((category) => (
                   <TableRow key={category.id}>
                     <TableCell className="font-medium">{category.name}</TableCell>
                     <TableCell>{category.description}</TableCell>
@@ -288,9 +357,16 @@ export default function CategoriesPage() {
                       </DropdownMenu>
                     </TableCell>
                   </TableRow>
-                ))}
+                )) : (
+                    <TableRow>
+                        <TableCell colSpan={3} className="text-center py-10 text-muted-foreground">
+                            Nenhuma categoria cadastrada ainda.
+                        </TableCell>
+                    </TableRow>
+                )}
               </TableBody>
             </Table>
+            )}
           </CardContent>
           <CardFooter className="flex justify-between items-center">
             <span className="text-sm text-muted-foreground">
@@ -380,3 +456,5 @@ export default function CategoriesPage() {
     </>
   );
 }
+
+    
