@@ -161,7 +161,9 @@ export default function SubscriptionPage() {
   };
 
   const renderCurrentPlan = () => {
-    if (!subscription?.stripeSubscriptionId || subscription.stripeSubscriptionStatus !== 'active') return renderUpgradeCard();
+    if (!subscription?.stripeSubscriptionStatus || subscription.stripeSubscriptionStatus !== 'active') {
+        return renderUpgradeCard();
+    }
     
     const renewalDate = subscription.stripeCurrentPeriodEnd 
       ? new Date(subscription.stripeCurrentPeriodEnd * 1000).toLocaleDateString('pt-BR')
