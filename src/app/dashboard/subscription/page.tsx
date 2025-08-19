@@ -218,7 +218,6 @@ export default function SubscriptionPage() {
     const unsubscribeDb = onValue(subscriptionRef, (snapshot) => {
       const userData = snapshot.val();
       const subscriptionData = userData?.subscription;
-      console.log("Dados da assinatura no Firebase:", subscriptionData);
       setSubscription(subscriptionData);
       setIsLoading(false);
     }, (error) => {
