@@ -113,7 +113,7 @@ export async function POST(req: NextRequest) {
         // console.log(`Unhandled event type ${event.type}`); // Temporarily disable for cleaner logs
     }
     return NextResponse.json({ received: true });
-  } catch (error) {
+  } catch (error) => {
       console.error("Error processing webhook:", error);
       return NextResponse.json({ error: "Internal server error during webhook processing." }, { status: 500 });
   }
