@@ -298,6 +298,7 @@ export default function ProductsPage() {
         const file = values.image[0];
         const formData = new FormData();
         formData.append('file', file);
+        formData.append('cnpj', userCnpj); // <-- Send CNPJ to API
 
         try {
             const response = await fetch('/api/upload', {
@@ -306,17 +307,18 @@ export default function ProductsPage() {
             });
 
             if (!response.ok) {
-                throw new Error('Falha no upload da imagem.');
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Falha no upload da imagem.');
             }
 
             const data = await response.json();
             imageUrl = data.filePath;
 
-        } catch (error) {
+        } catch (error: any) {
             toast({
                 variant: "destructive",
                 title: "Erro no Upload!",
-                description: "Não foi possível enviar a imagem. Tente novamente.",
+                description: error.message || "Não foi possível enviar a imagem. Tente novamente.",
             });
             setIsUploading(false);
             return;
