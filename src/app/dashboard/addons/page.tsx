@@ -5,11 +5,13 @@ import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { ref, onValue, push, set, remove, get } from 'firebase/database';
+import { onAuthStateChanged, User } from 'firebase/auth';
 
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { PlusCircle, MoreVertical, Edit, Trash2, Search } from 'lucide-react';
+import { PlusCircle, MoreVertical, Edit, Trash2, Search, Loader2 } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -49,25 +51,14 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
+import { auth, realtimeDb } from '@/lib/firebase';
 
 type Addon = {
-  id: number;
+  id: string;
   name: string;
   price: number;
   description: string;
 };
-
-const addonsData: Addon[] = [
-    { id: 1, name: 'Borda Recheada Catupiry', price: 8.00, description: 'Borda recheada com o autêntico Catupiry' },
-    { id: 2, name: 'Borda Recheada Cheddar', price: 8.00, description: 'Borda cremosa com queijo cheddar' },
-    { id: 3, name: 'Bacon Extra', price: 6.50, description: 'Uma porção extra de bacon crocante' },
-    { id: 4, name: 'Catupiry Extra', price: 5.00, description: 'Mais cremosidade com uma porção extra de Catupiry' },
-    { id: 5, name: 'Cheddar Extra', price: 5.00, description: 'Dose dupla de queijo cheddar' },
-    { id: 6, name: 'Ovo', price: 3.00, description: 'Adicione um ovo frito ao seu prato' },
-    { id: 7, name: 'Batata Frita P', price: 12.00, description: 'Porção pequena de batatas fritas sequinhas' },
-    { id: 8, name: 'Guaraná Antarctica 2L', price: 10.00, description: 'Refrigerante gelado para acompanhar' },
-];
-
 
 const formSchema = z.object({
   name: z.string().min(2, { message: 'O nome do adicional é obrigatório.' }),
@@ -79,13 +70,16 @@ const formSchema = z.object({
 });
 
 export default function AddonsPage() {
-  const [addons, setAddons] = useState(addonsData);
+  const [addons, setAddons] = useState<Addon[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingAddon, setEditingAddon] = useState<Addon | null>(null);
   const [deletingAddon, setDeletingAddon] = useState<Addon | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [userCnpj, setUserCnpj] = useState<string | null>(null);
 
   const itemsPerPage = 5;
   const { toast } = useToast();
@@ -98,6 +92,69 @@ export default function AddonsPage() {
   const editForm = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
   });
+
+   useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        setCurrentUser(user);
+      } else {
+        setIsLoading(false);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (currentUser) {
+      const usersRef = ref(realtimeDb, 'users');
+      get(usersRef).then((snapshot) => {
+        if (snapshot.exists()) {
+          const usersData = snapshot.val();
+          const userCnpj = Object.keys(usersData).find(
+            (cnpj) => usersData[cnpj].authUid === currentUser.uid
+          );
+          
+          if (userCnpj) {
+            setUserCnpj(userCnpj);
+          } else {
+            console.error("User CNPJ not found for UID:", currentUser.uid);
+            toast({ title: "Erro", description: "Não foi possível encontrar os dados do seu restaurante.", variant: "destructive" });
+            setIsLoading(false);
+          }
+        } else {
+          setIsLoading(false);
+        }
+      }).catch((error) => {
+        console.error("Error fetching user data:", error);
+        toast({ title: "Erro de Conexão", description: "Não foi possível buscar os dados do usuário.", variant: "destructive" });
+        setIsLoading(false);
+      });
+    }
+  }, [currentUser, toast]);
+
+  useEffect(() => {
+    if (userCnpj) {
+      const addonsRef = ref(realtimeDb, `add-ons/${userCnpj}`);
+      const unsubscribe = onValue(addonsRef, (snapshot) => {
+        const data = snapshot.val();
+        const loadedAddons: Addon[] = [];
+        if (data) {
+          for (const key in data) {
+            loadedAddons.push({ id: key, ...data[key] });
+          }
+        }
+        setAddons(loadedAddons);
+        setIsLoading(false);
+      }, (error) => {
+        console.error(error);
+        toast({ title: "Erro de Conexão", description: "Não foi possível carregar os adicionais.", variant: "destructive" });
+        setIsLoading(false);
+      });
+
+      return () => unsubscribe();
+    }
+  }, [userCnpj, toast]);
+
 
   useEffect(() => {
     if (editingAddon) {
@@ -126,34 +183,52 @@ export default function AddonsPage() {
 
   const paginate = (pageNumber: number) => setCurrentPage(pageNumber);
 
-  function onCreateSubmit(values: z.infer<typeof formSchema>) {
-    const newAddon = {
-      id: Date.now(),
-      name: values.name,
-      price: values.price,
-      description: values.description || ''
-    };
-    setAddons(prev => [...prev, newAddon]);
-    toast({
-      title: "Adicional Criado!",
-      description: `O adicional "${values.name}" foi adicionado com sucesso.`,
-    });
-    createForm.reset({ name: '', price: 0, description: '' });
-    setIsCreateModalOpen(false);
+  async function onCreateSubmit(values: z.infer<typeof formSchema>) {
+    if (!userCnpj) {
+        toast({ title: "Erro", description: "Usuário não identificado.", variant: "destructive" });
+        return;
+    }
+    try {
+        const addonsRef = ref(realtimeDb, `add-ons/${userCnpj}`);
+        const newAddonRef = push(addonsRef);
+        await set(newAddonRef, {
+            name: values.name,
+            price: values.price,
+            description: values.description || ''
+        });
+        
+        toast({
+            title: "Adicional Criado!",
+            description: `O adicional "${values.name}" foi adicionado com sucesso.`,
+        });
+        createForm.reset({ name: '', price: 0, description: '' });
+        setIsCreateModalOpen(false);
+
+    } catch (error) {
+         toast({ title: "Erro ao criar", description: "Não foi possível salvar o adicional.", variant: "destructive" });
+    }
   }
 
-  function onEditSubmit(values: z.infer<typeof formSchema>) {
-    if (!editingAddon) return;
+  async function onEditSubmit(values: z.infer<typeof formSchema>) {
+    if (!editingAddon || !userCnpj) return;
 
-    setAddons(prev => prev.map(c => 
-      c.id === editingAddon.id ? { ...c, name: values.name, price: values.price, description: values.description || '' } : c
-    ));
-    toast({
-      title: "Adicional Atualizado!",
-      description: `O adicional "${values.name}" foi atualizado com sucesso.`,
-    });
-    setIsEditModalOpen(false);
-    setEditingAddon(null);
+    try {
+        const addonRef = ref(realtimeDb, `add-ons/${userCnpj}/${editingAddon.id}`);
+        await set(addonRef, {
+             name: values.name,
+             price: values.price,
+             description: values.description || ''
+        });
+
+        toast({
+            title: "Adicional Atualizado!",
+            description: `O adicional "${values.name}" foi atualizado com sucesso.`,
+        });
+        setIsEditModalOpen(false);
+        setEditingAddon(null);
+    } catch(error) {
+        toast({ title: "Erro ao atualizar", description: "Não foi possível salvar as alterações.", variant: "destructive" });
+    }
   }
 
   const handleEditClick = (addon: Addon) => {
@@ -165,15 +240,22 @@ export default function AddonsPage() {
     setDeletingAddon(addon);
   };
 
-  const confirmDelete = () => {
-    if (!deletingAddon) return;
+  const confirmDelete = async () => {
+    if (!deletingAddon || !userCnpj) return;
 
-    setAddons(prev => prev.filter(c => c.id !== deletingAddon.id));
-    toast({
-      title: "Adicional Excluído!",
-      description: `O adicional "${deletingAddon.name}" foi removido com sucesso.`,
-    });
-    setDeletingAddon(null);
+    try {
+        const addonRef = ref(realtimeDb, `add-ons/${userCnpj}/${deletingAddon.id}`);
+        await remove(addonRef);
+
+        toast({
+            title: "Adicional Excluído!",
+            description: `O adicional "${deletingAddon.name}" foi removido com sucesso.`,
+        });
+        setDeletingAddon(null);
+    } catch(error) {
+        toast({ title: "Erro ao excluir", description: "Não foi possível remover o adicional.", variant: "destructive" });
+        setDeletingAddon(null);
+    }
   }
 
   const formatCurrency = (value: number) => {
@@ -276,46 +358,58 @@ export default function AddonsPage() {
             </div>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Nome</TableHead>
-                  <TableHead>Preço</TableHead>
-                  <TableHead>Descrição</TableHead>
-                  <TableHead className="text-right">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {currentAddons.map((addon) => (
-                  <TableRow key={addon.id}>
-                    <TableCell className="font-medium">{addon.name}</TableCell>
-                    <TableCell>{formatCurrency(addon.price)}</TableCell>
-                    <TableCell>{addon.description}</TableCell>
-                    <TableCell className="text-right">
-                       <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon">
-                            <MoreVertical />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent>
-                          <DropdownMenuItem onClick={() => handleEditClick(addon)}>
-                            <Edit className="mr-2 h-4 w-4" />
-                            <span>Editar</span>
-                          </DropdownMenuItem>
-                          <AlertDialogTrigger asChild>
-                             <DropdownMenuItem className="text-red-500" onSelect={() => handleDeleteClick(addon)}>
-                                <Trash2 className="mr-2 h-4 w-4" />
-                                <span>Excluir</span>
-                            </DropdownMenuItem>
-                          </AlertDialogTrigger>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+             {isLoading ? (
+                <div className="flex justify-center items-center h-48">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                </div>
+             ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Nome</TableHead>
+                      <TableHead>Preço</TableHead>
+                      <TableHead>Descrição</TableHead>
+                      <TableHead className="text-right">Ações</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {currentAddons.length > 0 ? currentAddons.map((addon) => (
+                      <TableRow key={addon.id}>
+                        <TableCell className="font-medium">{addon.name}</TableCell>
+                        <TableCell>{formatCurrency(addon.price)}</TableCell>
+                        <TableCell>{addon.description}</TableCell>
+                        <TableCell className="text-right">
+                           <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon">
+                                <MoreVertical />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent>
+                              <DropdownMenuItem onClick={() => handleEditClick(addon)}>
+                                <Edit className="mr-2 h-4 w-4" />
+                                <span>Editar</span>
+                              </DropdownMenuItem>
+                              <AlertDialogTrigger asChild>
+                                 <DropdownMenuItem className="text-red-500" onSelect={() => handleDeleteClick(addon)}>
+                                    <Trash2 className="mr-2 h-4 w-4" />
+                                    <span>Excluir</span>
+                                </DropdownMenuItem>
+                              </AlertDialogTrigger>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    )) : (
+                        <TableRow>
+                            <TableCell colSpan={4} className="text-center py-10 text-muted-foreground">
+                                Nenhum adicional cadastrado ainda.
+                            </TableCell>
+                        </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+             )}
           </CardContent>
           <CardFooter className="flex justify-between items-center">
             <span className="text-sm text-muted-foreground">
