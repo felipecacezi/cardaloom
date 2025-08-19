@@ -31,7 +31,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Logo } from '@/components/logo';
 
 type Restaurant = {
-  cnpj: string;
+  id: string; // Cleaned CNPJ
+  originalCnpj: string; // Original CNPJ from database
   restaurantName: string;
   hours?: Record<string, { isOpen: boolean; openTime: string; closeTime: string }>;
   whatsappOrderNumber?: string;
@@ -89,9 +90,10 @@ function RestaurantSearchPage() {
             const snapshot = await get(usersRef);
             if (snapshot.exists()) {
                 const usersData = snapshot.val();
-                const allRestaurants: Restaurant[] = Object.keys(usersData).map(cnpj => ({
-                    cnpj, // This will be the cleaned CNPJ
-                    ...usersData[cnpj]
+                const allRestaurants: Restaurant[] = Object.keys(usersData).map(id => ({
+                    id: id,
+                    originalCnpj: usersData[id].cnpj,
+                    restaurantName: usersData[id].restaurantName,
                 }));
                 const filtered = allRestaurants.filter(r => 
                     r.restaurantName.toLowerCase().includes(searchQuery.toLowerCase())
@@ -144,7 +146,7 @@ function RestaurantSearchPage() {
                          restaurants.length > 0 ? (
                             <div className="space-y-4 text-left">
                                 {restaurants.map(resto => (
-                                    <Link key={resto.cnpj} href={`/menu?id=${resto.cnpj}`}>
+                                    <Link key={resto.id} href={`/menu?id=${resto.id}`}>
                                         <Card className="hover:bg-accent hover:shadow-md transition-all">
                                             <CardHeader>
                                                 <CardTitle>{resto.restaurantName}</CardTitle>
@@ -165,7 +167,7 @@ function RestaurantSearchPage() {
 
 
 function MenuDisplayPage({ restaurantId }: { restaurantId: string }) {
-    const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
+    const [restaurant, setRestaurant] = useState<Omit<Restaurant, 'id' | 'originalCnpj'> | null>(null);
     const [categories, setCategories] = useState<Category[]>([]);
     const [products, setProducts] = useState<Product[]>([]);
     const [addons, setAddons] = useState<Addon[]>([]);
@@ -218,7 +220,6 @@ function MenuDisplayPage({ restaurantId }: { restaurantId: string }) {
 
                 const userData = userSnap.val();
                 setRestaurant({
-                    cnpj: restaurantId,
                     restaurantName: userData.restaurantName,
                     hours: userData.hours,
                     whatsappOrderNumber: userData.whatsappOrderNumber,
