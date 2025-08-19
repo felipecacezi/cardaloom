@@ -60,14 +60,19 @@ type Addon = {
   description: string;
 };
 
+const unformatCurrency = (value: string) => {
+    const onlyNumbers = value.replace(/[^\d]/g, '');
+    return parseFloat(onlyNumbers) / 100;
+}
+
 const formSchema = z.object({
   name: z.string().min(2, { message: 'O nome do adicional é obrigatório.' }),
-  price: z.preprocess(
-    (a) => parseFloat(z.string().parse(a)),
-    z.number().positive({ message: 'O preço deve ser um número positivo.' })
-  ),
+  price: z.string().refine(value => !isNaN(unformatCurrency(value)) && unformatCurrency(value) > 0, {
+      message: 'O preço deve ser um número positivo.'
+  }),
   description: z.string().optional(),
 });
+
 
 export default function AddonsPage() {
   const [addons, setAddons] = useState<Addon[]>([]);
@@ -83,10 +88,21 @@ export default function AddonsPage() {
 
   const itemsPerPage = 5;
   const { toast } = useToast();
+  
+  const formatCurrency = (value: number) => {
+    return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  };
+  
+  const formatCurrencyInput = (value: string) => {
+    const onlyNumbers = value.replace(/[^\d]/g, '');
+    if (!onlyNumbers) return '';
+    const numberValue = parseInt(onlyNumbers, 10) / 100;
+    return formatCurrency(numberValue);
+  };
 
   const createForm = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
-    defaultValues: { name: '', price: 0, description: '' },
+    defaultValues: { name: '', price: '', description: '' },
   });
 
   const editForm = useForm<z.infer<typeof formSchema>>({
@@ -110,12 +126,13 @@ export default function AddonsPage() {
       get(usersRef).then((snapshot) => {
         if (snapshot.exists()) {
           const usersData = snapshot.val();
-          const userCnpj = Object.keys(usersData).find(
-            (cnpj) => usersData[cnpj].authUid === currentUser.uid
+          const userEntry = Object.entries(usersData).find(
+            ([cnpj, data]) => (data as any).authUid === currentUser.uid
           );
           
-          if (userCnpj) {
-            setUserCnpj(userCnpj);
+          if (userEntry) {
+            const [cnpj] = userEntry;
+            setUserCnpj(cnpj);
           } else {
             console.error("User CNPJ not found for UID:", currentUser.uid);
             toast({ title: "Erro", description: "Não foi possível encontrar os dados do seu restaurante.", variant: "destructive" });
@@ -160,7 +177,7 @@ export default function AddonsPage() {
     if (editingAddon) {
       editForm.reset({
         name: editingAddon.name,
-        price: editingAddon.price,
+        price: formatCurrency(editingAddon.price),
         description: editingAddon.description,
       });
     }
@@ -193,7 +210,7 @@ export default function AddonsPage() {
         const newAddonRef = push(addonsRef);
         await set(newAddonRef, {
             name: values.name,
-            price: values.price,
+            price: unformatCurrency(values.price),
             description: values.description || ''
         });
         
@@ -201,7 +218,7 @@ export default function AddonsPage() {
             title: "Adicional Criado!",
             description: `O adicional "${values.name}" foi adicionado com sucesso.`,
         });
-        createForm.reset({ name: '', price: 0, description: '' });
+        createForm.reset({ name: '', price: '', description: '' });
         setIsCreateModalOpen(false);
 
     } catch (error) {
@@ -216,7 +233,7 @@ export default function AddonsPage() {
         const addonRef = ref(realtimeDb, `add-ons/${userCnpj}/${editingAddon.id}`);
         await set(addonRef, {
              name: values.name,
-             price: values.price,
+             price: unformatCurrency(values.price),
              description: values.description || ''
         });
 
@@ -258,9 +275,6 @@ export default function AddonsPage() {
     }
   }
 
-  const formatCurrency = (value: number) => {
-    return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-  };
 
   return (
     <>
@@ -270,7 +284,12 @@ export default function AddonsPage() {
           <h1 className="text-lg font-semibold md:text-2xl">Gerenciar Adicionais</h1>
           <p className="text-sm text-muted-foreground">Adicione, edite ou remova os adicionais do seu cardápio.</p>
         </div>
-        <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
+        <Dialog open={isCreateModalOpen} onOpenChange={(isOpen) => {
+            setIsCreateModalOpen(isOpen);
+            if (!isOpen) {
+                createForm.reset({ name: '', price: '', description: '' });
+            }
+        }}>
             <DialogTrigger asChild>
                 <Button>
                     <PlusCircle className="mr-2" />
@@ -304,9 +323,13 @@ export default function AddonsPage() {
                             name="price"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Preço (R$)</FormLabel>
+                                    <FormLabel>Preço</FormLabel>
                                     <FormControl>
-                                        <Input type="number" step="0.01" placeholder="Ex: 8.50" {...field} onChange={e => field.onChange(e.target.value)} />
+                                        <Input 
+                                            placeholder="R$ 0,00" 
+                                            {...field} 
+                                            onChange={(e) => field.onChange(formatCurrencyInput(e.target.value))}
+                                        />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -478,9 +501,13 @@ export default function AddonsPage() {
                             name="price"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Preço (R$)</FormLabel>
+                                    <FormLabel>Preço</FormLabel>
                                     <FormControl>
-                                        <Input type="number" step="0.01" placeholder="Ex: 8.50" {...field} onChange={e => field.onChange(e.target.value)} />
+                                         <Input 
+                                            placeholder="R$ 0,00" 
+                                            {...field} 
+                                            onChange={(e) => field.onChange(formatCurrencyInput(e.target.value))}
+                                        />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
