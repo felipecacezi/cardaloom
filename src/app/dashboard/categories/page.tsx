@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { ref, onValue, push, set, remove, get, query, orderByChild, equalTo } from 'firebase/database';
+import { ref, onValue, push, set, remove, get } from 'firebase/database';
 import { onAuthStateChanged, User } from 'firebase/auth';
 
 import { SidebarTrigger } from '@/components/ui/sidebar';
@@ -104,18 +104,31 @@ export default function CategoriesPage() {
   useEffect(() => {
     if (currentUser) {
       const usersRef = ref(realtimeDb, 'users');
-      const userQuery = query(usersRef, orderByChild('authUid'), equalTo(currentUser.uid));
-      get(userQuery).then((snapshot) => {
+      get(usersRef).then((snapshot) => {
         if (snapshot.exists()) {
-          const userData = snapshot.val();
-          const cnpj = Object.keys(userData)[0];
-          setUserCnpj(cnpj);
+          const usersData = snapshot.val();
+          // Find the user entry that matches the current user's UID
+          const userCnpj = Object.keys(usersData).find(
+            (cnpj) => usersData[cnpj].authUid === currentUser.uid
+          );
+          
+          if (userCnpj) {
+            setUserCnpj(userCnpj);
+          } else {
+            console.error("User CNPJ not found for UID:", currentUser.uid);
+            toast({ title: "Erro", description: "Não foi possível encontrar os dados do seu restaurante.", variant: "destructive" });
+            setIsLoading(false);
+          }
         } else {
           setIsLoading(false);
         }
+      }).catch((error) => {
+        console.error("Error fetching user data:", error);
+        toast({ title: "Erro de Conexão", description: "Não foi possível buscar os dados do usuário.", variant: "destructive" });
+        setIsLoading(false);
       });
     }
-  }, [currentUser]);
+  }, [currentUser, toast]);
 
   useEffect(() => {
     if (userCnpj) {
@@ -456,5 +469,3 @@ export default function CategoriesPage() {
     </>
   );
 }
-
-    
