@@ -1,3 +1,4 @@
+
 import { NextResponse } from 'next/server';
 // Importe as funções do Firebase Authentication e Realtime Database que você precisa
 // Certifique-se de que 'auth' e 'db' estão sendo exportados de src/lib/firebase.ts
