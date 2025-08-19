@@ -33,7 +33,7 @@ async function updateSubscriptionInDb(subscription: Stripe.Subscription) {
 
     if (!cnpj) {
         console.error("Webhook Error: CNPJ not found in subscription metadata or by customer ID.", { subscriptionId: subscription.id, customerId: subscription.customer });
-        // Don't return, as we might be creating the customer link
+        // We shouldn't return here, because we might need to create the customer link later
     }
 
     const subscriptionData: any = {
@@ -92,9 +92,10 @@ export async function POST(req: NextRequest) {
                 ? completedSession.subscription 
                 : completedSession.subscription.id;
             
+            // Retrieve the full subscription object to get all details
             const subscription = await stripe.subscriptions.retrieve(subscriptionId);
             
-            // Add metadata to the subscription object for easier linking
+            // Add metadata from session to the subscription object for easier linking
             subscription.metadata = { ...subscription.metadata, cnpj: completedSession.metadata?.cnpj };
 
             await updateSubscriptionInDb(subscription);
@@ -109,7 +110,7 @@ export async function POST(req: NextRequest) {
         break;
         }
         default:
-        console.log(`Unhandled event type ${event.type}`);
+        // console.log(`Unhandled event type ${event.type}`); // Temporarily disable for cleaner logs
     }
     return NextResponse.json({ received: true });
   } catch (error) {
