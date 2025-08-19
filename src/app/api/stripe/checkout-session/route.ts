@@ -4,7 +4,6 @@ import { headers } from 'next/headers';
 import { ref, get, update } from 'firebase/database';
 import { stripe } from '@/lib/stripe';
 import { realtimeDb } from '@/lib/firebase';
-import { auth } from 'firebase-admin';
 
 export async function POST(req: NextRequest) {
     try {
@@ -21,7 +20,22 @@ export async function POST(req: NextRequest) {
         }
         
         const userData = snapshot.val();
-        const stripeCustomerId = userData.stripeCustomerId;
+        let stripeCustomerId = userData.stripeCustomerId;
+
+        // Se o usuário não tiver um ID de cliente Stripe, crie um novo
+        if (!stripeCustomerId) {
+            const customer = await stripe.customers.create({
+                email: userData.email, // Usa o email do Firebase
+                name: userData.ownerName, // Usa o nome do proprietário
+                metadata: {
+                    cnpj: cnpj,
+                }
+            });
+            stripeCustomerId = customer.id;
+
+            // Salve o novo ID do cliente no Firebase
+            await update(userRef, { stripeCustomerId: stripeCustomerId });
+        }
         
         const origin = headers().get('origin') || 'http://localhost:9002';
 
@@ -29,14 +43,10 @@ export async function POST(req: NextRequest) {
             payment_method_types: ['card'],
             line_items: [ { price: priceId, quantity: 1 } ],
             mode: 'subscription',
-            customer: stripeCustomerId, // Passa o ID existente ou undefined
-            customer_update: { // Permite ao Stripe atualizar o cliente se ele já existir
-                name: 'auto',
-                address: 'auto',
-            },
+            customer: stripeCustomerId, // Passa o ID do cliente Stripe existente ou recém-criado
             success_url: `${origin}/dashboard/subscription?success=true&session_id={CHECKOUT_SESSION_ID}`,
             cancel_url: `${origin}/dashboard/subscription?canceled=true`,
-            metadata: { cnpj } // Essencial para o webhook
+            metadata: { cnpj } // Essencial para o webhook identificar o usuário
         });
 
         if (session.url) {
