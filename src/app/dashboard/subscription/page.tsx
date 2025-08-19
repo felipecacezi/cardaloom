@@ -161,51 +161,53 @@ export default function SubscriptionPage() {
   };
 
   const renderCurrentPlan = () => {
-    if (!subscription?.stripeSubscriptionStatus || subscription.stripeSubscriptionStatus !== 'active') {
-        return renderUpgradeCard();
+    // Correct Logic: If the user has an active subscription, show the management card.
+    if (subscription?.stripeSubscriptionStatus === 'active') {
+        const renewalDate = subscription.stripeCurrentPeriodEnd 
+          ? new Date(subscription.stripeCurrentPeriodEnd * 1000).toLocaleDateString('pt-BR')
+          : 'N/A';
+          
+        return (
+          <Card>
+            <CardHeader>
+              <div className="flex justify-between items-start">
+                  <div>
+                    <CardTitle>Seu Plano Atual</CardTitle>
+                    <CardDescription>Próxima renovação em {renewalDate}.</CardDescription>
+                  </div>
+                   <Badge variant="secondary" className="text-base bg-green-100 text-green-800 border-green-300">
+                    <Star className="mr-2 h-4 w-4 text-yellow-500 fill-current" />
+                    {proPlan.name}
+                   </Badge>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <p className="text-3xl font-bold">{proPlan.price}</p>
+                <ul className="space-y-2 text-muted-foreground">
+                  {proPlan.features.map((feature, index) => (
+                    <li key={index} className="flex items-center gap-2">
+                      <CheckCircle className="h-5 w-5 text-green-500" />
+                      <span>{feature}</span>
+                    </li>
+                  ))}
+                </ul>
+                 <Separator className="my-4" />
+                <Button className="w-full justify-between" onClick={handleSubscriptionAction} disabled={isRedirecting}>
+                    {isRedirecting ? (
+                        <> <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Redirecionando... </>
+                    ) : (
+                        <> <span>Gerenciar Assinatura</span> <ArrowRight /> </>
+                    )}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        );
     }
     
-    const renewalDate = subscription.stripeCurrentPeriodEnd 
-      ? new Date(subscription.stripeCurrentPeriodEnd * 1000).toLocaleDateString('pt-BR')
-      : 'N/A';
-      
-    return (
-      <Card>
-        <CardHeader>
-          <div className="flex justify-between items-start">
-              <div>
-                <CardTitle>Seu Plano Atual</CardTitle>
-                <CardDescription>Próxima renovação em {renewalDate}.</CardDescription>
-              </div>
-               <Badge variant="secondary" className="text-base bg-green-100 text-green-800 border-green-300">
-                <Star className="mr-2 h-4 w-4 text-yellow-500 fill-current" />
-                {proPlan.name}
-               </Badge>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <p className="text-3xl font-bold">{proPlan.price}</p>
-            <ul className="space-y-2 text-muted-foreground">
-              {proPlan.features.map((feature, index) => (
-                <li key={index} className="flex items-center gap-2">
-                  <CheckCircle className="h-5 w-5 text-green-500" />
-                  <span>{feature}</span>
-                </li>
-              ))}
-            </ul>
-             <Separator className="my-4" />
-            <Button className="w-full justify-between" onClick={handleSubscriptionAction} disabled={isRedirecting}>
-                {isRedirecting ? (
-                    <> <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Redirecionando... </>
-                ) : (
-                    <> <span>Gerenciar Assinatura</span> <ArrowRight /> </>
-                )}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-    );
+    // If not active, show the upgrade card.
+    return renderUpgradeCard();
   };
   
   const renderUpgradeCard = () => {
@@ -277,3 +279,5 @@ export default function SubscriptionPage() {
     </>
   );
 }
+
+    
