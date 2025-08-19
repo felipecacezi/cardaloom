@@ -1,14 +1,20 @@
 
 'use client';
 
+import { useState } from 'react';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { CheckCircle, ArrowRight } from 'lucide-react';
+import { CheckCircle, ArrowRight, Loader2 } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { getStripe } from '@/lib/stripe-client';
 
 export default function SubscriptionPage() {
+  const [isRedirecting, setIsRedirecting] = useState(false);
+  const { toast } = useToast();
+
   const currentPlan = {
     name: 'Plano Pro',
     price: 'R$ 49,90/mês',
@@ -27,6 +33,47 @@ export default function SubscriptionPage() {
     last4: '4242',
     expires: '12/2028',
   };
+
+  const handleUpgradeClick = async () => {
+    setIsRedirecting(true);
+    try {
+        // This is a placeholder for getting the user's CNPJ.
+        // In a real app, you would get this from the authenticated user's session.
+        const cnpj = '00000000000191'; 
+
+        const res = await fetch('/api/stripe/checkout-session', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ 
+                priceId: process.env.NEXT_PUBLIC_STRIPE_PRO_PRICE_ID,
+                cnpj: cnpj 
+            }),
+        });
+
+        if (!res.ok) {
+            const errorData = await res.json();
+            throw new Error(errorData.error || 'Failed to create checkout session');
+        }
+
+        const { url } = await res.json();
+        if (url) {
+            window.location.href = url;
+        } else {
+            throw new Error('Could not get redirect URL');
+        }
+
+    } catch (error: any) {
+        toast({
+            title: 'Erro',
+            description: error.message || 'Não foi possível redirecionar para o pagamento. Tente novamente.',
+            variant: 'destructive',
+        });
+        setIsRedirecting(false);
+    }
+  };
+
 
   return (
     <>
@@ -129,9 +176,18 @@ export default function SubscriptionPage() {
                     <CardTitle>Opções da Assinatura</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                    <Button className="w-full justify-between">
-                        <span>Alterar Plano</span>
-                        <ArrowRight />
+                    <Button className="w-full justify-between" onClick={handleUpgradeClick} disabled={isRedirecting}>
+                        {isRedirecting ? (
+                            <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Redirecionando...
+                            </>
+                        ) : (
+                            <>
+                                <span>Alterar Plano</span>
+                                <ArrowRight />
+                            </>
+                        )}
                     </Button>
                      <Button variant="outline" className="w-full text-red-500 hover:text-red-600 hover:border-red-500">
                         Cancelar Assinatura
