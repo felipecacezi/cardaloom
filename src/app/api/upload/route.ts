@@ -2,15 +2,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { promises as fs } from 'fs';
 import path from 'path';
-import formidable, { File } from 'formidable';
 import { ref, push, set } from 'firebase/database';
 import { realtimeDb } from '@/lib/firebase';
-
-export const config = {
-  api: {
-    bodyParser: false,
-  },
-};
 
 const baseUploadDir = path.join(process.cwd(), 'public', 'uploads');
 
@@ -26,37 +19,24 @@ async function ensureUploadDirExists(cnpj: string) {
 
 export async function POST(req: NextRequest) {
   try {
-    const form = formidable({});
-    
-    const [fields, files] = await new Promise<[formidable.Fields<string>, formidable.Files<string>]>((resolve, reject) => {
-        form.parse(req as any, (err, fields, files) => {
-            if (err) {
-                reject(err);
-                return;
-            }
-            resolve([fields, files]);
-        });
-    });
+    const formData = await req.formData();
+    const file = formData.get('file') as File | null;
+    const cnpj = formData.get('cnpj') as string | null;
 
-    const cnpjField = fields.cnpj;
-    if (!cnpjField || typeof cnpjField[0] !== 'string') {
-      return NextResponse.json({ error: 'CNPJ não fornecido.' }, { status: 400 });
-    }
-    const cnpj = cnpjField[0];
-
-    const fileArray = files.file;
-    if (!fileArray || fileArray.length === 0) {
+    if (!file) {
       return NextResponse.json({ error: 'Nenhum arquivo enviado.' }, { status: 400 });
     }
-    
-    const file = fileArray[0] as File;
+    if (!cnpj) {
+      return NextResponse.json({ error: 'CNPJ não fornecido.' }, { status: 400 });
+    }
 
     const userUploadDir = await ensureUploadDirExists(cnpj);
-
-    const newFilename = `${Date.now()}-${file.originalFilename}`;
+    
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const newFilename = `${Date.now()}-${file.name}`;
     const newPath = path.join(userUploadDir, newFilename);
-
-    await fs.rename(file.filepath, newPath);
+    
+    await fs.writeFile(newPath, buffer);
 
     const filePath = `/uploads/${cnpj}/${newFilename}`;
 
@@ -71,8 +51,8 @@ export async function POST(req: NextRequest) {
     
     await set(newImageRef, {
       filePath: filePath,
-      fileName: file.originalFilename,
-      fileType: file.mimetype,
+      fileName: file.name,
+      fileType: file.type,
       fileSize: file.size,
       createdAt: new Date().toISOString()
     });
