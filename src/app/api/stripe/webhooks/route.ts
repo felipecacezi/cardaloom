@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { headers } from 'next/headers';
 import Stripe from 'stripe';
-import { ref, update, get } from 'firebase/database';
+import { ref, update, get, set } from 'firebase/database';
 import { stripe } from '@/lib/stripe';
 import { realtimeDb } from '@/lib/firebase';
 
@@ -25,7 +25,6 @@ async function findUserByStripeCustomerId(customerId: string): Promise<string | 
 async function updateSubscriptionInDb(subscription: Stripe.Subscription) {
     let cnpj = subscription.metadata.cnpj;
     
-    // Fallback for events where metadata might not be present (e.g., updates from the dashboard)
     if (!cnpj && subscription.customer) {
         const customerId = typeof subscription.customer === 'string' ? subscription.customer : subscription.customer.id;
         cnpj = await findUserByStripeCustomerId(customerId);
@@ -33,8 +32,11 @@ async function updateSubscriptionInDb(subscription: Stripe.Subscription) {
 
     if (!cnpj) {
         console.error("Webhook Error: CNPJ not found in subscription metadata or by customer ID.", { subscriptionId: subscription.id, customerId: subscription.customer });
-        // We shouldn't return here, because we might need to create the customer link later
+        return;
     }
+
+    const userRef = ref(realtimeDb, `users/${cnpj}`);
+    const subscriptionRef = ref(realtimeDb, `users/${cnpj}/subscription`);
 
     const subscriptionData: any = {
         stripeSubscriptionId: subscription.id,
@@ -42,32 +44,29 @@ async function updateSubscriptionInDb(subscription: Stripe.Subscription) {
         stripePriceId: subscription.items.data[0]?.price.id,
         stripeCurrentPeriodEnd: subscription.current_period_end,
         stripeSubscriptionStatus: subscription.status,
+        cancel_at_period_end: subscription.cancel_at_period_end,
     };
     
     // For checkout complete, also update the customer ID on the user record using CNPJ from metadata
-    if (subscription.metadata.cnpj) {
-        const userRef = ref(realtimeDb, `users/${subscription.metadata.cnpj}`);
-         await update(userRef, {
-             ...subscriptionData,
-             stripeCustomerId: subscription.customer // Ensure customer ID is stored
+    if (event.type === 'checkout.session.completed') {
+        await update(userRef, { 
+            stripeCustomerId: subscription.customer,
+            subscription: subscriptionData
          });
-        console.log(`Updated subscription for CNPJ: ${subscription.metadata.cnpj}`);
-    } else if (cnpj) {
-        const userRef = ref(realtimeDb, `users/${cnpj}`);
-        await update(userRef, subscriptionData);
-        console.log(`Updated subscription for user with Stripe Customer ID: ${subscription.customer}`);
     } else {
-        console.error("Webhook Error: Could not update subscription, no user identifier found.");
+        await set(subscriptionRef, subscriptionData);
     }
+
+    console.log(`Updated subscription for CNPJ: ${cnpj}`);
 }
 
+let event: Stripe.Event;
 
 export async function POST(req: NextRequest) {
   const body = await req.text();
   const signature = headers().get('Stripe-Signature') as string;
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
-  let event: Stripe.Event;
 
   if (!webhookSecret) {
     console.error('Stripe webhook secret is not set.');
@@ -92,10 +91,8 @@ export async function POST(req: NextRequest) {
                 ? completedSession.subscription 
                 : completedSession.subscription.id;
             
-            // Retrieve the full subscription object to get all details
             const subscription = await stripe.subscriptions.retrieve(subscriptionId);
             
-            // Add metadata from session to the subscription object for easier linking
             subscription.metadata = { ...subscription.metadata, cnpj: completedSession.metadata?.cnpj };
 
             await updateSubscriptionInDb(subscription);
@@ -110,7 +107,6 @@ export async function POST(req: NextRequest) {
         break;
         }
         default:
-        // console.log(`Unhandled event type ${event.type}`); // Temporarily disable for cleaner logs
     }
     return NextResponse.json({ received: true });
   } catch (error) => {

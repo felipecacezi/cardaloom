@@ -17,6 +17,17 @@ import { useToast } from '@/hooks/use-toast';
 import { auth, realtimeDb } from '@/lib/firebase';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 
 type SubscriptionData = {
   stripeCustomerId?: string;
@@ -24,6 +35,7 @@ type SubscriptionData = {
   stripePriceId?: string;
   stripeCurrentPeriodEnd?: number;
   stripeSubscriptionStatus?: string;
+  cancel_at_period_end?: boolean;
 };
 
 const proPlan = {
@@ -142,6 +154,7 @@ function InvoiceHistory({ cnpj }: { cnpj: string }) {
 export default function SubscriptionPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRedirecting, setIsRedirecting] = useState(false);
+  const [isCanceling, setIsCanceling] = useState(false);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [userCnpj, setUserCnpj] = useState<string | null>(null);
   const [subscription, setSubscription] = useState<SubscriptionData | null>(null);
@@ -201,9 +214,10 @@ export default function SubscriptionPage() {
   useEffect(() => {
     if (!userCnpj) return;
 
-    const subscriptionRef = ref(realtimeDb, `users/${userCnpj}/subscription`);
+    const subscriptionRef = ref(realtimeDb, `users/${userCnpj}`);
     const unsubscribeDb = onValue(subscriptionRef, (snapshot) => {
-      const subscriptionData = snapshot.val();
+      const userData = snapshot.val();
+      const subscriptionData = userData?.subscription;
       console.log("Dados da assinatura no Firebase:", subscriptionData);
       setSubscription(subscriptionData);
       setIsLoading(false);
@@ -253,11 +267,49 @@ export default function SubscriptionPage() {
     }
   };
 
+  const handleCancelSubscription = async () => {
+    if (!userCnpj) {
+        toast({ title: 'Erro', description: 'Informações do usuário inválidas.', variant: 'destructive'});
+        return;
+    }
+    setIsCanceling(true);
+    try {
+        const response = await fetch('/api/stripe/cancel-subscription', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ cnpj: userCnpj }),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.error || 'Não foi possível agendar o cancelamento.');
+        }
+
+        toast({
+            title: 'Cancelamento Agendado',
+            description: data.message,
+        });
+
+    } catch (error: any) {
+        toast({
+            title: 'Erro ao Cancelar',
+            description: error.message,
+            variant: 'destructive',
+        });
+    } finally {
+        setIsCanceling(false);
+    }
+  };
+
+
   const renderCurrentPlan = () => {
     if (subscription?.stripeSubscriptionStatus === 'active') {
         const renewalDate = subscription.stripeCurrentPeriodEnd 
           ? new Date(subscription.stripeCurrentPeriodEnd * 1000).toLocaleDateString('pt-BR')
           : 'N/A';
+          
+        const cancelAtPeriodEnd = subscription.cancel_at_period_end;
           
         return (
          <div className="space-y-6">
@@ -266,7 +318,12 @@ export default function SubscriptionPage() {
                 <div className="flex justify-between items-start">
                     <div>
                         <CardTitle>Seu Plano Atual</CardTitle>
-                        <CardDescription>Próxima renovação em {renewalDate}.</CardDescription>
+                        <CardDescription>
+                          {cancelAtPeriodEnd 
+                              ? `Sua assinatura será cancelada em ${renewalDate}.`
+                              : `Próxima renovação em ${renewalDate}.`
+                          }
+                        </CardDescription>
                     </div>
                     <Badge variant="secondary" className="text-base bg-green-100 text-green-800 border-green-300">
                         <Star className="mr-2 h-4 w-4 text-yellow-500 fill-current" />
@@ -287,6 +344,31 @@ export default function SubscriptionPage() {
                         </ul>
                     </div>
                 </CardContent>
+                {!cancelAtPeriodEnd && (
+                   <CardFooter>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                         <Button variant="destructive" disabled={isCanceling}>
+                            {isCanceling ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                            Cancelar Assinatura
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Sua assinatura permanecerá ativa até o final do período de cobrança atual ({renewalDate}). 
+                            Você pode reativá-la a qualquer momento antes dessa data. Deseja continuar com o cancelamento?
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Voltar</AlertDialogCancel>
+                          <AlertDialogAction onClick={handleCancelSubscription}>Confirmar Cancelamento</AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </CardFooter>
+                )}
             </Card>
             {userCnpj && <InvoiceHistory cnpj={userCnpj} />}
          </div>
