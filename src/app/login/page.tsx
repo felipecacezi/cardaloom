@@ -54,7 +54,9 @@ export default function LoginPage() {
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsSubmitting(true);
     try {
-        await signInWithEmailAndPassword(auth, values.email, values.password);
+        const test = await signInWithEmailAndPassword(auth, values.email, values.password);
+        console.log('test', test);
+        
         toast({
             title: "Login Realizado com Sucesso!",
             description: "Você será redirecionado para o painel.",

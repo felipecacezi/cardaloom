@@ -5,7 +5,8 @@ import React, { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Home, Utensils, Settings, LogOut, Bookmark, PlusSquare, CreditCard, Loader2 } from 'lucide-react';
-import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { onAuthStateChanged, signOut, User } from 'firebase/auth';
+import { ref, get } from 'firebase/database';
 
 import {
   SidebarProvider,
@@ -16,10 +17,11 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
   SidebarInset,
-  SidebarFooter,
+  SidebarTrigger,
+  SheetTitle,
 } from '@/components/ui/sidebar';
 import { Logo } from '@/components/logo';
-import { auth } from '@/lib/firebase';
+import { auth, realtimeDb } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
 
 
@@ -142,6 +144,31 @@ function DashboardLayoutContent({
   );
 }
 
+const syncUserSubscription = async (user: User) => {
+    try {
+        const usersRef = ref(realtimeDb, 'users');
+        const snapshot = await get(usersRef);
+
+        if (snapshot.exists()) {
+            const usersData = snapshot.val();
+            const userEntry = Object.entries(usersData).find(
+                ([, data]) => (data as any).authUid === user.uid
+            );
+
+            if (userEntry) {
+                const cnpj = userEntry[0];
+                await fetch('/api/stripe/sync-subscription', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: user.email, cnpj: cnpj }),
+                });
+            }
+        }
+    } catch (error) {
+        console.error("Failed to sync subscription on login:", error);
+    }
+};
+
 
 const withAuth = (Component: React.ComponentType<any>) => {
   return function AuthenticatedComponent(props: any) {
@@ -153,7 +180,10 @@ const withAuth = (Component: React.ComponentType<any>) => {
         if (!user) {
           router.push('/login');
         } else {
-          setLoading(false);
+          // Sincroniza a assinatura ao carregar o usuário
+          syncUserSubscription(user).finally(() => {
+              setLoading(false);
+          });
         }
       });
 
