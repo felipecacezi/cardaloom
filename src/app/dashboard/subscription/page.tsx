@@ -21,6 +21,7 @@ type SubscriptionData = {
   stripeSubscriptionId?: string;
   stripePriceId?: string;
   stripeCurrentPeriodEnd?: number;
+  stripeSubscriptionStatus?: string;
 };
 
 const proPlan = {
@@ -80,6 +81,8 @@ export default function SubscriptionPage() {
                     toast({ title: "Erro", description: "Dados do restaurante não encontrados.", variant: "destructive" });
                     setIsLoading(false);
                 }
+            } else {
+                setIsLoading(false);
             }
         } catch (error) {
             toast({ title: "Erro de Conexão", description: "Não foi possível buscar os dados.", variant: "destructive" });
@@ -105,27 +108,35 @@ export default function SubscriptionPage() {
             stripeSubscriptionId: userData.stripeSubscriptionId,
             stripePriceId: userData.stripePriceId,
             stripeCurrentPeriodEnd: userData.stripeCurrentPeriodEnd,
+            stripeSubscriptionStatus: userData.stripeSubscriptionStatus,
         });
       }
       setIsLoading(false);
+    }, (error) => {
+        console.error("Firebase onValue error:", error);
+        toast({ title: "Erro", description: "Não foi possível carregar os dados da assinatura.", variant: "destructive" });
+        setIsLoading(false);
     });
 
     return () => unsubscribeDb();
-  }, [userCnpj]);
+  }, [userCnpj, toast]);
 
-  const handleSubscriptionAction = async (priceId: string | undefined) => {
-    if (!userCnpj || !priceId) {
-        toast({ title: 'Erro', description: 'Informações do usuário ou plano inválidas.', variant: 'destructive'});
+  const handleSubscriptionAction = async () => {
+    if (!userCnpj) {
+        toast({ title: 'Erro', description: 'Informações do usuário inválidas.', variant: 'destructive'});
         return;
     }
     setIsRedirecting(true);
     try {
-        const endpoint = subscription?.stripeSubscriptionId ? '/api/stripe/customer-portal' : '/api/stripe/checkout-session';
+        const isSubscribed = subscription?.stripeSubscriptionId && subscription?.stripeSubscriptionStatus === 'active';
+        const endpoint = isSubscribed ? '/api/stripe/customer-portal' : '/api/stripe/checkout-session';
+
+        const body = isSubscribed ? { cnpj: userCnpj } : { priceId: proPlan.priceId, cnpj: userCnpj };
 
         const res = await fetch(endpoint, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ priceId, cnpj: userCnpj }),
+            body: JSON.stringify(body),
         });
 
         if (!res.ok) {
@@ -150,7 +161,7 @@ export default function SubscriptionPage() {
   };
 
   const renderCurrentPlan = () => {
-    if (!subscription?.stripeSubscriptionId) return null;
+    if (!subscription?.stripeSubscriptionId || subscription.stripeSubscriptionStatus !== 'active') return renderUpgradeCard();
     
     const renewalDate = subscription.stripeCurrentPeriodEnd 
       ? new Date(subscription.stripeCurrentPeriodEnd * 1000).toLocaleDateString('pt-BR')
@@ -182,7 +193,7 @@ export default function SubscriptionPage() {
               ))}
             </ul>
              <Separator className="my-4" />
-            <Button className="w-full justify-between" onClick={() => handleSubscriptionAction(subscription.stripePriceId)} disabled={isRedirecting}>
+            <Button className="w-full justify-between" onClick={handleSubscriptionAction} disabled={isRedirecting}>
                 {isRedirecting ? (
                     <> <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Redirecionando... </>
                 ) : (
@@ -196,7 +207,6 @@ export default function SubscriptionPage() {
   };
   
   const renderUpgradeCard = () => {
-     if (subscription?.stripeSubscriptionId) return null;
      return (
         <Card className="border-primary border-2 shadow-lg">
             <CardHeader>
@@ -216,13 +226,14 @@ export default function SubscriptionPage() {
                         </li>
                     ))}
                 </ul>
-                <Button size="lg" className="w-full" onClick={() => handleSubscriptionAction(proPlan.priceId)} disabled={isRedirecting}>
+                <Button size="lg" className="w-full" onClick={handleSubscriptionAction} disabled={isRedirecting || !proPlan.priceId}>
                     {isRedirecting ? (
                         <> <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Redirecionando... </>
                     ) : (
-                        'Fazer Upgrade para o Pro'
+                       !proPlan.priceId ? 'Configuração de Plano Pendente' : 'Fazer Upgrade para o Pro'
                     )}
                 </Button>
+                 {!proPlan.priceId && <p className="text-xs text-center text-destructive mt-2">O ID do plano não está configurado.</p>}
             </CardContent>
         </Card>
      );
@@ -259,9 +270,7 @@ export default function SubscriptionPage() {
         </div>
       </header>
       <main className="flex-1 p-6">
-        {isLoading ? renderSkeleton() : (
-            subscription?.stripeSubscriptionId ? renderCurrentPlan() : renderUpgradeCard()
-        )}
+        {isLoading ? renderSkeleton() : renderCurrentPlan()}
       </main>
     </>
   );

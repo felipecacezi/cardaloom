@@ -2,27 +2,63 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { headers } from 'next/headers';
 import Stripe from 'stripe';
-import { ref, update } from 'firebase/database';
+import { ref, update, get } from 'firebase/database';
 import { stripe } from '@/lib/stripe';
 import { realtimeDb } from '@/lib/firebase';
 
+// Helper function to find user by stripeCustomerId
+async function findUserByStripeCustomerId(customerId: string): Promise<string | null> {
+    const usersRef = ref(realtimeDb, 'users');
+    const snapshot = await get(usersRef);
+    if (snapshot.exists()) {
+        const usersData = snapshot.val();
+        for (const cnpj in usersData) {
+            if (usersData[cnpj].stripeCustomerId === customerId) {
+                return cnpj;
+            }
+        }
+    }
+    return null;
+}
+
+
 async function updateSubscriptionInDb(subscription: Stripe.Subscription) {
-    const cnpj = subscription.metadata.cnpj;
-    if (!cnpj) {
-        console.error("Webhook Error: CNPJ not found in subscription metadata.");
-        return;
+    let cnpj = subscription.metadata.cnpj;
+    
+    // Fallback for events where metadata might not be present (e.g., updates from the dashboard)
+    if (!cnpj && subscription.customer) {
+        const customerId = typeof subscription.customer === 'string' ? subscription.customer : subscription.customer.id;
+        cnpj = await findUserByStripeCustomerId(customerId);
     }
 
-    const userRef = ref(realtimeDb, `users/${cnpj}`);
-    const subscriptionData = {
+    if (!cnpj) {
+        console.error("Webhook Error: CNPJ not found in subscription metadata or by customer ID.", { subscriptionId: subscription.id, customerId: subscription.customer });
+        // Don't return, as we might be creating the customer link
+    }
+
+    const subscriptionData: any = {
         stripeSubscriptionId: subscription.id,
         stripeCustomerId: subscription.customer,
-        stripePriceId: subscription.items.data[0].price.id,
+        stripePriceId: subscription.items.data[0]?.price.id,
         stripeCurrentPeriodEnd: subscription.current_period_end,
         stripeSubscriptionStatus: subscription.status,
     };
-    await update(userRef, subscriptionData);
-    console.log(`Updated subscription for CNPJ: ${cnpj}`);
+    
+    // For checkout complete, also update the customer ID on the user record using CNPJ from metadata
+    if (subscription.metadata.cnpj) {
+        const userRef = ref(realtimeDb, `users/${subscription.metadata.cnpj}`);
+         await update(userRef, {
+             ...subscriptionData,
+             stripeCustomerId: subscription.customer // Ensure customer ID is stored
+         });
+        console.log(`Updated subscription for CNPJ: ${subscription.metadata.cnpj}`);
+    } else if (cnpj) {
+        const userRef = ref(realtimeDb, `users/${cnpj}`);
+        await update(userRef, subscriptionData);
+        console.log(`Updated subscription for user with Stripe Customer ID: ${subscription.customer}`);
+    } else {
+        console.error("Webhook Error: Could not update subscription, no user identifier found.");
+    }
 }
 
 
@@ -45,26 +81,39 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: `Webhook Error: ${err.message}` }, { status: 400 });
   }
   
-  switch (event.type) {
-    case 'checkout.session.completed': {
-      const session = event.data.object as Stripe.Checkout.Session;
-      if (session.mode === 'subscription' && session.subscription) {
-          const subscription = await stripe.subscriptions.retrieve(session.subscription as string);
-          await updateSubscriptionInDb(subscription);
-      }
-      break;
-    }
-    case 'customer.subscription.updated':
-    case 'customer.subscription.deleted':
-    case 'customer.subscription.resumed':
-    case 'customer.subscription.paused': {
-      const subscription = event.data.object as Stripe.Subscription;
-      await updateSubscriptionInDb(subscription);
-      break;
-    }
-    default:
-      console.log(`Unhandled event type ${event.type}`);
-  }
+  const session = event.data.object as any;
 
-  return NextResponse.json({ received: true });
+  try {
+    switch (event.type) {
+        case 'checkout.session.completed': {
+        const completedSession = session as Stripe.Checkout.Session;
+        if (completedSession.mode === 'subscription' && completedSession.subscription) {
+            const subscriptionId = typeof completedSession.subscription === 'string' 
+                ? completedSession.subscription 
+                : completedSession.subscription.id;
+            
+            const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+            
+            // Add metadata to the subscription object for easier linking
+            subscription.metadata = { ...subscription.metadata, cnpj: completedSession.metadata?.cnpj };
+
+            await updateSubscriptionInDb(subscription);
+        }
+        break;
+        }
+        case 'customer.subscription.updated':
+        case 'customer.subscription.deleted':
+        case 'customer.subscription.created': {
+        const subscription = session as Stripe.Subscription;
+        await updateSubscriptionInDb(subscription);
+        break;
+        }
+        default:
+        console.log(`Unhandled event type ${event.type}`);
+    }
+    return NextResponse.json({ received: true });
+  } catch (error) {
+      console.error("Error processing webhook:", error);
+      return NextResponse.json({ error: "Internal server error during webhook processing." }, { status: 500 });
+  }
 }

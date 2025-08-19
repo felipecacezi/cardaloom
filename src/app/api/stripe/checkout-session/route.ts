@@ -4,6 +4,7 @@ import { headers } from 'next/headers';
 import { ref, get, update } from 'firebase/database';
 import { stripe } from '@/lib/stripe';
 import { realtimeDb } from '@/lib/firebase';
+import { auth } from 'firebase-admin';
 
 export async function POST(req: NextRequest) {
     try {
@@ -25,7 +26,6 @@ export async function POST(req: NextRequest) {
         // Create a new Stripe customer if one doesn't exist
         if (!stripeCustomerId) {
             const customer = await stripe.customers.create({
-                email: userData.email, // Assuming email is stored in user data
                 name: userData.restaurantName,
                 metadata: {
                     cnpj: cnpj,
