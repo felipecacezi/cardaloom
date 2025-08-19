@@ -32,7 +32,6 @@ import { Logo } from '@/components/logo';
 
 type Restaurant = {
   id: string; // Cleaned CNPJ
-  originalCnpj: string; // Original CNPJ from database
   restaurantName: string;
   hours?: Record<string, { isOpen: boolean; openTime: string; closeTime: string }>;
   whatsappOrderNumber?: string;
@@ -91,10 +90,10 @@ function RestaurantSearchPage() {
             if (snapshot.exists()) {
                 const usersData = snapshot.val();
                 const allRestaurants: Restaurant[] = Object.keys(usersData).map(id => ({
-                    id: id,
-                    originalCnpj: usersData[id].cnpj,
+                    id: id, // id is the cleaned CNPJ
                     restaurantName: usersData[id].restaurantName,
                 }));
+
                 const filtered = allRestaurants.filter(r => 
                     r.restaurantName.toLowerCase().includes(searchQuery.toLowerCase())
                 );
@@ -167,7 +166,7 @@ function RestaurantSearchPage() {
 
 
 function MenuDisplayPage({ restaurantId }: { restaurantId: string }) {
-    const [restaurant, setRestaurant] = useState<Omit<Restaurant, 'id' | 'originalCnpj'> | null>(null);
+    const [restaurant, setRestaurant] = useState<Omit<Restaurant, 'id'> | null>(null);
     const [categories, setCategories] = useState<Category[]>([]);
     const [products, setProducts] = useState<Product[]>([]);
     const [addons, setAddons] = useState<Addon[]>([]);
@@ -682,5 +681,3 @@ export default function MenuPage() {
 
     return <RestaurantSearchPage />;
 }
-
-    
