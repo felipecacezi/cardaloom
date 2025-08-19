@@ -90,7 +90,7 @@ function RestaurantSearchPage() {
             if (snapshot.exists()) {
                 const usersData = snapshot.val();
                 const allRestaurants: Restaurant[] = Object.keys(usersData).map(cnpj => ({
-                    cnpj,
+                    cnpj, // This will be the cleaned CNPJ
                     ...usersData[cnpj]
                 }));
                 const filtered = allRestaurants.filter(r => 
@@ -681,3 +681,5 @@ export default function MenuPage() {
 
     return <RestaurantSearchPage />;
 }
+
+    
