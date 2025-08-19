@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Plus, Minus, ShoppingCart, Clock, Loader2, Search, Utensils } from 'lucide-react';
+import { Plus, Minus, ShoppingCart, Clock, Loader2, Search, Utensils, X } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -677,16 +677,15 @@ function MenuDisplayPage({ restaurantId }: { restaurantId: string }) {
         <DialogContent className="sm:max-w-md p-0">
             {selectedProduct && (
             <>
-                <div className="relative h-48 w-full">
+                <div className="relative h-48 w-full rounded-t-lg overflow-hidden">
                      <Image 
                         src={images[selectedProduct.imageId]?.filePath || 'https://placehold.co/600x400.png'} 
                         alt={selectedProduct.name} 
                         fill 
                         objectFit="cover"
-                        className="rounded-t-lg"
                         data-ai-hint="pizza food"/>
                     <DialogClose asChild>
-                        <button className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground bg-white/50 hover:bg-white/80 p-1">
+                        <button className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground bg-white/50 hover:bg-white/80 p-1 z-10">
                             <X className="h-4 w-4" />
                             <span className="sr-only">Close</span>
                         </button>
