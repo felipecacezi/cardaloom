@@ -31,7 +31,7 @@ export async function POST(req: Request) {
     const uid = user.uid;
 
     // 4. Salvar dados adicionais no Firebase Realtime Database
-    const userRef = ref(db, `users/${cleanedCnpj}`); // Usando o CNPJ limpo como chave
+    const userRef = ref(realtimeDb, `users/${cleanedCnpj}`); // Usando o CNPJ limpo como chave
     await set(userRef, {
       authUid: uid, // Salvando o UID do Auth para referência
       restaurantName,

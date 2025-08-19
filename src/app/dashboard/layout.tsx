@@ -1,6 +1,12 @@
 
 'use client';
 
+import React, { useEffect, useState } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { Home, Utensils, Settings, LogOut, Bookmark, PlusSquare, CreditCard, Loader2 } from 'lucide-react';
+import { onAuthStateChanged } from 'firebase/auth';
+
 import {
   SidebarProvider,
   Sidebar,
@@ -12,12 +18,11 @@ import {
   SidebarInset,
   SidebarFooter,
 } from '@/components/ui/sidebar';
-import { Home, Utensils, Settings, LogOut, Bookmark, PlusSquare, CreditCard } from 'lucide-react';
 import { Logo } from '@/components/logo';
-import { usePathname } from 'next/navigation';
-import Link from 'next/link';
+import { auth } from '@/lib/firebase';
 
-export default function DashboardLayout({
+
+function DashboardLayoutContent({
   children,
 }: {
   children: React.ReactNode;
@@ -117,3 +122,35 @@ export default function DashboardLayout({
     </SidebarProvider>
   );
 }
+
+
+const withAuth = (Component: React.ComponentType<any>) => {
+  return function AuthenticatedComponent(props: any) {
+    const router = useRouter();
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+      const unsubscribe = onAuthStateChanged(auth, (user) => {
+        if (!user) {
+          router.push('/login');
+        } else {
+          setLoading(false);
+        }
+      });
+
+      return () => unsubscribe();
+    }, [router]);
+
+    if (loading) {
+      return (
+        <div className="flex h-screen w-full items-center justify-center">
+            <Loader2 className="h-8 w-8 animate-spin" />
+        </div>
+      )
+    }
+
+    return <Component {...props} />;
+  };
+};
+
+export default withAuth(DashboardLayoutContent);
