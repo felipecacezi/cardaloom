@@ -1,44 +1,63 @@
 
 import { NextResponse } from 'next/server';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { ref, set, get } from 'firebase/database';
-import { auth, realtimeDb } from '../../../lib/firebase';
+import { z } from 'zod';
+import { initializeAdminApp } from '@/lib/firebase-admin';
+import { getDatabase, ref, set, get } from 'firebase/database';
+
+const admin = initializeAdminApp();
+const adminAuth = admin.auth();
+const realtimeDb = getDatabase();
+
+const signUpSchema = z.object({
+  restaurantName: z.string().min(2),
+  ownerName: z.string().min(2),
+  cnpj: z.string().regex(/^\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}$/, 'Invalid CNPJ format'),
+  email: z.string().email(),
+  password: z.string().min(8),
+  zipCode: z.string().regex(/^\d{5}-\d{3}$/, 'Invalid ZIP code format'),
+  street: z.string().min(2),
+  number: z.string().min(1),
+  complement: z.string().optional(),
+  neighborhood: z.string().min(2),
+  city: z.string().min(2),
+  state: z.string().min(2),
+});
+
 
 export async function POST(req: Request) {
   try {
-    const { email, password, restaurantName, ownerName, cnpj, street, number, complement, neighborhood, city, state, zipCode } = await req.json();
+    const rawData = await req.json();
+    const validatedData = signUpSchema.safeParse(rawData);
 
-    // 1. Validar dados (Opcional, mas recomendado para segurança)
-    if (!email || !password || !restaurantName || !ownerName || !cnpj) {
-      return NextResponse.json({ error: 'Dados obrigatórios faltando' }, { status: 400 });
+    if (!validatedData.success) {
+      return NextResponse.json({ error: 'Invalid input data', details: validatedData.error.flatten() }, { status: 400 });
     }
-
-    // Limpar o CNPJ: remover pontos, traço e barra
+    
+    const { email, password, restaurantName, ownerName, cnpj, street, number, complement, neighborhood, city, state, zipCode } = validatedData.data;
+    
     const cleanedCnpj = cnpj.replace(/[.\-/]/g, '');
 
-    // 2. Verificar se o CNPJ limpo já existe no banco de dados
     const cnpjRef = ref(realtimeDb, `users/${cleanedCnpj}`);
     const snapshot = await get(cnpjRef);
     if (snapshot.exists()) {
-      return NextResponse.json({ error: 'CNPJ já cadastrado.' }, { status: 400 });
+      return NextResponse.json({ error: 'CNPJ já cadastrado.' }, { status: 409 });
     }
 
-    // 2. Criar usuário no Firebase Authentication
-    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-    const user = userCredential.user;
+    const userRecord = await adminAuth.createUser({
+        email,
+        password,
+        displayName: ownerName,
+    });
+    const uid = userRecord.uid;
 
-    // 3. Obter o UID do usuário criado
-    const uid = user.uid;
-
-    // 4. Salvar dados adicionais no Firebase Realtime Database
-    const userRef = ref(realtimeDb, `users/${cleanedCnpj}`); // Usando o CNPJ limpo como chave
+    const userRef = ref(realtimeDb, `users/${cleanedCnpj}`);
     await set(userRef, {
-      authUid: uid, // Salvando o UID do Auth para referência
+      authUid: uid,
       restaurantName,
       ownerName,
-      cnpj, // Salvando o CNPJ original
-      email: user.email,
-      createdAt: new Date().toISOString(), // Adiciona o timestamp de criação
+      cnpj,
+      email,
+      createdAt: new Date().toISOString(),
       address: {
         street,
         number,
@@ -50,25 +69,13 @@ export async function POST(req: Request) {
       }
     });
 
-    console.log('Usuário criado e dados salvos com CNPJ limpo como ID:', { id: cleanedCnpj, email: user.email });
-
-    // 5. Retornar resposta de sucesso
     return NextResponse.json({ message: 'Usuário criado com sucesso!', id: cleanedCnpj }, { status: 201 });
 
   } catch (error: any) {
     console.error('Erro no BFF ao criar usuário:', error);
-
-    // Tratar erros específicos do Firebase Authentication
-    if (error.code === 'auth/email-already-in-use') {
-      return NextResponse.json({ error: 'Este email já está em uso.' }, { status: 400 });
+    if (error.code === 'auth/email-already-exists') {
+      return NextResponse.json({ error: 'Este email já está em uso.' }, { status: 409 });
     }
-    if (error.code === 'auth/weak-password') {
-        return NextResponse.json({ error: 'A senha é muito fraca.' }, { status: 400 });
-    }
-    if (error.code === 'auth/invalid-email') {
-        return NextResponse.json({ error: 'O formato do email é inválido.' }, { status: 400 });
-    }
-
     return NextResponse.json({ error: error.message || 'Erro interno do servidor' }, { status: 500 });
   }
 }
