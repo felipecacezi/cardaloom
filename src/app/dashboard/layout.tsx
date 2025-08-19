@@ -25,7 +25,6 @@ import { Logo } from '@/components/logo';
 import { auth, realtimeDb } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
 
-
 function DashboardLayoutContent({
   children,
 }: {
@@ -148,7 +147,7 @@ function DashboardLayoutContent({
 const syncUserSubscription = async (user: User) => {
     if (!user.email) {
         console.error("User email is not available for subscription sync.");
-        return;
+        return null;
     }
     try {
         const usersRef = ref(realtimeDb, 'users');
@@ -161,15 +160,23 @@ const syncUserSubscription = async (user: User) => {
             );
 
             if (userEntry) {
-                const cnpj = userEntry[0];
+                const [cnpj, userData] = userEntry as [string, { createdAt?: string, subscription?: any }];
                 console.log(`Syncing subscription for user ${user.email} with CNPJ ${cnpj}`);
+                
                 const response = await fetch('/api/stripe/sync-subscription', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ email: user.email, cnpj: cnpj }),
                 });
+
                 const result = await response.json();
                 console.log("Sync response:", result);
+
+                // Retorna os dados do usuário atualizados (incluindo `createdAt` e a nova `subscription`)
+                if (result.success && result.subscription) {
+                  return { ...userData, subscription: result.subscription };
+                }
+                return userData;
             } else {
                  console.error("Could not find user CNPJ to sync subscription.");
             }
@@ -177,28 +184,53 @@ const syncUserSubscription = async (user: User) => {
     } catch (error) {
         console.error("Failed to sync subscription on login:", error);
     }
+    return null;
 };
 
 
 const withAuth = (Component: React.ComponentType<any>) => {
   return function AuthenticatedComponent(props: any) {
     const router = useRouter();
+    const pathname = usePathname();
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-      const unsubscribe = onAuthStateChanged(auth, (user) => {
+      const unsubscribe = onAuthStateChanged(auth, async (user) => {
         if (!user) {
           router.push('/login');
         } else {
-          // Sincroniza a assinatura ao carregar o usuário
-          syncUserSubscription(user).finally(() => {
-              setLoading(false);
-          });
+          // Sincroniza e obtém os dados do usuário
+          const userData = await syncUserSubscription(user);
+          
+          if (userData) {
+            const { createdAt, subscription } = userData;
+            const hasActiveSubscription = subscription?.stripeSubscriptionStatus === 'active';
+
+            if (createdAt && !hasActiveSubscription) {
+              const creationDate = new Date(createdAt);
+              const trialEndDate = new Date(creationDate);
+              trialEndDate.setDate(trialEndDate.getDate() + 30);
+              const today = new Date();
+
+              if (today > trialEndDate) {
+                // Trial expired and no active subscription
+                const allowedPaths = ['/dashboard', '/dashboard/subscription'];
+                if (!allowedPaths.includes(pathname)) {
+                  router.push('/dashboard/subscription');
+                } else if (pathname === '/dashboard') {
+                   // Adiciona query param para mostrar o aviso
+                   const newUrl = `${pathname}?trial=expired`;
+                   router.replace(newUrl, { scroll: false });
+                }
+              }
+            }
+          }
+          setLoading(false);
         }
       });
 
       return () => unsubscribe();
-    }, [router]);
+    }, [router, pathname]);
 
     if (loading) {
       return (

@@ -37,6 +37,8 @@ export async function POST(req: Request) {
       restaurantName,
       ownerName,
       cnpj, // Salvando o CNPJ original
+      email: user.email,
+      createdAt: new Date().toISOString(), // Adiciona o timestamp de criação
       address: {
         street,
         number,
