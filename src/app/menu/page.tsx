@@ -32,6 +32,7 @@ import { Logo } from '@/components/logo';
 
 type Restaurant = {
   id: string; // Cleaned CNPJ
+  originalCnpj: string;
   restaurantName: string;
   hours?: Record<string, { isOpen: boolean; openTime: string; closeTime: string }>;
   whatsappOrderNumber?: string;
@@ -92,6 +93,7 @@ function RestaurantSearchPage() {
                 const allRestaurants: Restaurant[] = Object.keys(usersData).map(id => ({
                     id: id, // id is the cleaned CNPJ
                     restaurantName: usersData[id].restaurantName,
+                    originalCnpj: usersData[id].cnpj,
                 }));
 
                 const filtered = allRestaurants.filter(r => 
@@ -166,7 +168,7 @@ function RestaurantSearchPage() {
 
 
 function MenuDisplayPage({ restaurantId }: { restaurantId: string }) {
-    const [restaurant, setRestaurant] = useState<Omit<Restaurant, 'id'> | null>(null);
+    const [restaurant, setRestaurant] = useState<Omit<Restaurant, 'id' | 'originalCnpj'> | null>(null);
     const [categories, setCategories] = useState<Category[]>([]);
     const [products, setProducts] = useState<Product[]>([]);
     const [addons, setAddons] = useState<Addon[]>([]);
@@ -609,57 +611,59 @@ function MenuDisplayPage({ restaurantId }: { restaurantId: string }) {
             )}
         </div>
 
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md p-0">
             {selectedProduct && (
             <>
-                <DialogHeader>
-                    <div className="relative h-48 w-full -mx-6 -mt-6 mb-4">
-                        <Image 
-                          src={images[selectedProduct.imageId]?.filePath || 'https://placehold.co/600x400.png'} 
-                          alt={selectedProduct.name} 
-                          fill 
-                          objectFit="cover" 
-                          className="rounded-t-lg" 
-                          data-ai-hint="pizza food"/>
-                    </div>
-                    <DialogTitle className="text-2xl">{selectedProduct.name}</DialogTitle>
-                    <DialogDescription>{selectedProduct.description}</DialogDescription>
-                </DialogHeader>
-                
-                {getAddonsForProduct(selectedProduct).length > 0 && (
-                    <div className="my-4">
-                        <h4 className="font-semibold mb-2">Adicionais</h4>
-                        <div className="space-y-2 max-h-32 overflow-y-auto pr-2">
-                            {getAddonsForProduct(selectedProduct).map(addon => (
-                                <div key={addon.id} className="flex items-center justify-between p-2 rounded-md border">
-                                    <div>
-                                        <Label htmlFor={`addon-${addon.id}`}>{addon.name}</Label>
-                                        <p className="text-sm text-primary">+{formatCurrency(addon.price)}</p>
+                <div className="relative h-48 w-full">
+                    <Image 
+                        src={images[selectedProduct.imageId]?.filePath || 'https://placehold.co/600x400.png'} 
+                        alt={selectedProduct.name} 
+                        fill 
+                        objectFit="cover" 
+                        className="rounded-t-lg" 
+                        data-ai-hint="pizza food"/>
+                </div>
+                <div className="p-6">
+                    <DialogHeader className="text-left">
+                        <DialogTitle className="text-2xl">{selectedProduct.name}</DialogTitle>
+                        <DialogDescription>{selectedProduct.description}</DialogDescription>
+                    </DialogHeader>
+                    
+                    {getAddonsForProduct(selectedProduct).length > 0 && (
+                        <div className="my-4">
+                            <h4 className="font-semibold mb-2">Adicionais</h4>
+                            <div className="space-y-2 max-h-32 overflow-y-auto pr-2">
+                                {getAddonsForProduct(selectedProduct).map(addon => (
+                                    <div key={addon.id} className="flex items-center justify-between p-2 rounded-md border">
+                                        <div>
+                                            <Label htmlFor={`addon-${addon.id}`}>{addon.name}</Label>
+                                            <p className="text-sm text-primary">+{formatCurrency(addon.price)}</p>
+                                        </div>
+                                        <Checkbox 
+                                            id={`addon-${addon.id}`} 
+                                            onCheckedChange={(checked) => handleAddonToggle(addon, !!checked)}
+                                        />
                                     </div>
-                                    <Checkbox 
-                                        id={`addon-${addon.id}`} 
-                                        onCheckedChange={(checked) => handleAddonToggle(addon, !!checked)}
-                                    />
-                                </div>
-                            ))}
+                                ))}
+                            </div>
                         </div>
-                    </div>
-                )}
+                    )}
 
-                <div className="flex items-center justify-between my-4">
-                    <h4 className="font-semibold">Quantidade</h4>
-                    <div className="flex items-center gap-2">
-                        <Button variant="outline" size="icon" onClick={() => setQuantity(q => Math.max(1, q - 1))}>
-                            <Minus className="h-4 w-4" />
-                        </Button>
-                        <span className="text-lg font-bold w-8 text-center">{quantity}</span>
-                        <Button variant="outline" size="icon" onClick={() => setQuantity(q => q + 1)}>
-                            <Plus className="h-4 w-4" />
-                        </Button>
+                    <div className="flex items-center justify-between my-4">
+                        <h4 className="font-semibold">Quantidade</h4>
+                        <div className="flex items-center gap-2">
+                            <Button variant="outline" size="icon" onClick={() => setQuantity(q => Math.max(1, q - 1))}>
+                                <Minus className="h-4 w-4" />
+                            </Button>
+                            <span className="text-lg font-bold w-8 text-center">{quantity}</span>
+                            <Button variant="outline" size="icon" onClick={() => setQuantity(q => q + 1)}>
+                                <Plus className="h-4 w-4" />
+                            </Button>
+                        </div>
                     </div>
                 </div>
                 
-                <DialogFooter>
+                <DialogFooter className="p-6 pt-0">
                     <Button className="w-full" size="lg" onClick={addToCart}>
                         Adicionar ao carrinho - {formatCurrency(calculateItemPrice())}
                     </Button>
