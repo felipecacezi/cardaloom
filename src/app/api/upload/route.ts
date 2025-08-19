@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { promises as fs } from 'fs';
 import path from 'path';
-import formidable from 'formidable';
+import formidable, { File } from 'formidable';
 
 export const config = {
   api: {
@@ -17,50 +17,51 @@ async function ensureUploadDirExists(cnpj: string) {
   try {
     await fs.access(userUploadDir);
   } catch (error) {
+    // If directory doesn't exist, create it
     await fs.mkdir(userUploadDir, { recursive: true });
   }
   return userUploadDir;
 }
 
 export async function POST(req: NextRequest) {
-  const form = formidable({});
-  
   try {
-    const [fields, files] = await form.parse(req as any);
+    const form = formidable({});
     
-    const cnpjField = fields.cnpj;
-    if (!cnpjField || typeof cnpjField[0] !== 'string') {
-        return NextResponse.json({ error: 'CNPJ não fornecido.' }, { status: 400 });
-    }
-    const cnpj = cnpjField[0];
-    
-    if (!files.file || files.file.length === 0) {
-        return NextResponse.json({ error: 'Nenhum arquivo enviado.' }, { status: 400 });
-    }
-
-    const userUploadDir = await ensureUploadDirExists(cnpj);
-
-    const formWithUploadDir = formidable({
-        uploadDir: userUploadDir,
-        keepExtensions: true,
-        filename: (name, ext, part, form) => {
-            return `${Date.now()}-${part.originalFilename}`;
-        }
+    // Use a Promise to handle the asynchronous parsing
+    const [fields, files] = await new Promise<[formidable.Fields<string>, formidable.Files<string>]>((resolve, reject) => {
+        form.parse(req as any, (err, fields, files) => {
+            if (err) {
+                reject(err);
+                return;
+            }
+            resolve([fields, files]);
+        });
     });
 
-    // We need to re-parse with the correct upload directory
-    // This is not ideal, but formidable doesn't easily support dynamic upload directories based on fields.
-    // A more robust solution might involve a different library or handling streams manually.
-    // For this use case, re-parsing is acceptable.
-     const [reparsedFields, reparsedFiles] = await form.parse(req as any);
-     const file = reparsedFiles.file![0];
+    const cnpjField = fields.cnpj;
+    if (!cnpjField || typeof cnpjField[0] !== 'string') {
+      return NextResponse.json({ error: 'CNPJ não fornecido.' }, { status: 400 });
+    }
+    const cnpj = cnpjField[0];
 
-     const tempPath = file.filepath;
-     const newFilename = `${Date.now()}-${file.originalFilename}`;
-     const newPath = path.join(userUploadDir, newFilename);
+    const fileArray = files.file;
+    if (!fileArray || fileArray.length === 0) {
+      return NextResponse.json({ error: 'Nenhum arquivo enviado.' }, { status: 400 });
+    }
+    
+    const file = fileArray[0] as File;
 
-     await fs.rename(tempPath, newPath);
+    // 1. Ensure user-specific upload directory exists
+    const userUploadDir = await ensureUploadDirExists(cnpj);
 
+    // 2. Define the new path for the file
+    const newFilename = `${Date.now()}-${file.originalFilename}`;
+    const newPath = path.join(userUploadDir, newFilename);
+
+    // 3. Move the file from its temporary location to the new path
+    await fs.rename(file.filepath, newPath);
+
+    // 4. Construct the public URL for the file
     const filePath = `/uploads/${cnpj}/${newFilename}`;
 
     return NextResponse.json({ filePath });
