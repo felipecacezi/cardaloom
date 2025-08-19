@@ -1,24 +1,24 @@
 
 import { NextResponse, NextRequest } from 'next/server';
-import { stripe } from '@/lib/stripe';
-import { auth, realtimeDb } from '@/lib/firebase';
-import { ref, get } from 'firebase/database';
 import { headers } from 'next/headers';
+import { ref, get, update } from 'firebase/database';
+import { stripe } from '@/lib/stripe';
+import { realtimeDb } from '@/lib/firebase';
 
 export async function POST(req: NextRequest) {
     try {
         const { priceId, cnpj } = await req.json();
 
         if (!priceId || !cnpj) {
-            return NextResponse.json({ error: 'Price ID and CNPJ are required' }, { status: 400 });
+            return NextResponse.json({ error: 'Price ID e CNPJ são obrigatórios' }, { status: 400 });
         }
 
         const userRef = ref(realtimeDb, `users/${cnpj}`);
         const snapshot = await get(userRef);
         if (!snapshot.exists()) {
-            return NextResponse.json({ error: 'User not found' }, { status: 404 });
+            return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 });
         }
-
+        
         const userData = snapshot.val();
         let stripeCustomerId = userData.stripeCustomerId;
 
@@ -32,33 +32,25 @@ export async function POST(req: NextRequest) {
                 },
             });
             stripeCustomerId = customer.id;
-            // You should update the user record in Firebase with this new customer ID
-            // await update(userRef, { stripeCustomerId: stripeCustomerId });
+            await update(userRef, { stripeCustomerId: stripeCustomerId });
         }
         
         const origin = headers().get('origin') || 'http://localhost:9002';
 
         const session = await stripe.checkout.sessions.create({
             payment_method_types: ['card'],
-            line_items: [
-                {
-                    price: priceId,
-                    quantity: 1,
-                },
-            ],
+            line_items: [ { price: priceId, quantity: 1 } ],
             mode: 'subscription',
             customer: stripeCustomerId,
-            success_url: `${origin}/dashboard/subscription?session_id={CHECKOUT_SESSION_ID}`,
-            cancel_url: `${origin}/dashboard/subscription`,
-            metadata: {
-                cnpj: cnpj,
-            }
+            success_url: `${origin}/dashboard/subscription?success=true&session_id={CHECKOUT_SESSION_ID}`,
+            cancel_url: `${origin}/dashboard/subscription?canceled=true`,
+            metadata: { cnpj }
         });
 
         if (session.url) {
             return NextResponse.json({ url: session.url });
         } else {
-             return NextResponse.json({ error: 'Could not create Stripe session' }, { status: 500 });
+             return NextResponse.json({ error: 'Não foi possível criar a sessão no Stripe' }, { status: 500 });
         }
 
     } catch (error: any) {

@@ -1,24 +1,32 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { onAuthStateChanged, User } from 'firebase/auth';
+import { ref, get, onValue } from 'firebase/database';
+
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { CheckCircle, ArrowRight, Loader2 } from 'lucide-react';
+import { CheckCircle, ArrowRight, Loader2, Star } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { getStripe } from '@/lib/stripe-client';
+import { auth, realtimeDb } from '@/lib/firebase';
+import { Skeleton } from '@/components/ui/skeleton';
 
-export default function SubscriptionPage() {
-  const [isRedirecting, setIsRedirecting] = useState(false);
-  const { toast } = useToast();
+type SubscriptionData = {
+  stripeCustomerId?: string;
+  stripeSubscriptionId?: string;
+  stripePriceId?: string;
+  stripeCurrentPeriodEnd?: number;
+};
 
-  const currentPlan = {
+const proPlan = {
     name: 'Plano Pro',
     price: 'R$ 49,90/mês',
-    renewsOn: '25 de Agosto de 2024',
+    priceId: process.env.NEXT_PUBLIC_STRIPE_PRO_PRICE_ID,
     features: [
       'Cardápio digital ilimitado',
       'Pedidos via WhatsApp',
@@ -26,54 +34,220 @@ export default function SubscriptionPage() {
       'Domínio personalizado (em breve)',
       'Estatísticas avançadas (em breve)',
     ],
-  };
+};
 
-  const paymentMethod = {
-    brand: 'Visa',
-    last4: '4242',
-    expires: '12/2028',
-  };
+export default function SubscriptionPage() {
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRedirecting, setIsRedirecting] = useState(false);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [userCnpj, setUserCnpj] = useState<string | null>(null);
+  const [subscription, setSubscription] = useState<SubscriptionData | null>(null);
 
-  const handleUpgradeClick = async () => {
+  const { toast } = useToast();
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    if (searchParams.get('success')) {
+      toast({
+        title: 'Assinatura Ativada!',
+        description: 'Seu plano foi ativado com sucesso. Bem-vindo ao Pro!',
+      });
+    }
+    if (searchParams.get('canceled')) {
+      toast({
+        title: 'Operação Cancelada',
+        description: 'Você cancelou o processo de assinatura.',
+        variant: 'destructive',
+      });
+    }
+  }, [searchParams, toast]);
+
+  useEffect(() => {
+    const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        setCurrentUser(user);
+        try {
+            const usersRef = ref(realtimeDb, 'users');
+            const snapshot = await get(usersRef);
+            if (snapshot.exists()) {
+                const usersData = snapshot.val();
+                const userEntry = Object.entries(usersData).find(
+                    ([, data]) => (data as any).authUid === user.uid
+                );
+                if (userEntry) {
+                    setUserCnpj(userEntry[0]);
+                } else {
+                    toast({ title: "Erro", description: "Dados do restaurante não encontrados.", variant: "destructive" });
+                    setIsLoading(false);
+                }
+            }
+        } catch (error) {
+            toast({ title: "Erro de Conexão", description: "Não foi possível buscar os dados.", variant: "destructive" });
+            setIsLoading(false);
+        }
+      } else {
+        setCurrentUser(null);
+        setIsLoading(false);
+      }
+    });
+    return () => unsubscribeAuth();
+  }, [toast]);
+
+  useEffect(() => {
+    if (!userCnpj) return;
+
+    const userRef = ref(realtimeDb, `users/${userCnpj}`);
+    const unsubscribeDb = onValue(userRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const userData = snapshot.val();
+        setSubscription({
+            stripeCustomerId: userData.stripeCustomerId,
+            stripeSubscriptionId: userData.stripeSubscriptionId,
+            stripePriceId: userData.stripePriceId,
+            stripeCurrentPeriodEnd: userData.stripeCurrentPeriodEnd,
+        });
+      }
+      setIsLoading(false);
+    });
+
+    return () => unsubscribeDb();
+  }, [userCnpj]);
+
+  const handleSubscriptionAction = async (priceId: string | undefined) => {
+    if (!userCnpj || !priceId) {
+        toast({ title: 'Erro', description: 'Informações do usuário ou plano inválidas.', variant: 'destructive'});
+        return;
+    }
     setIsRedirecting(true);
     try {
-        // This is a placeholder for getting the user's CNPJ.
-        // In a real app, you would get this from the authenticated user's session.
-        const cnpj = '00000000000191'; 
+        const endpoint = subscription?.stripeSubscriptionId ? '/api/stripe/customer-portal' : '/api/stripe/checkout-session';
 
-        const res = await fetch('/api/stripe/checkout-session', {
+        const res = await fetch(endpoint, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ 
-                priceId: process.env.NEXT_PUBLIC_STRIPE_PRO_PRICE_ID,
-                cnpj: cnpj 
-            }),
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ priceId, cnpj: userCnpj }),
         });
 
         if (!res.ok) {
             const errorData = await res.json();
-            throw new Error(errorData.error || 'Failed to create checkout session');
+            throw new Error(errorData.error || 'Falha ao processar a solicitação.');
         }
 
         const { url } = await res.json();
         if (url) {
             window.location.href = url;
         } else {
-            throw new Error('Could not get redirect URL');
+            throw new Error('Não foi possível obter a URL de redirecionamento.');
         }
-
     } catch (error: any) {
         toast({
             title: 'Erro',
-            description: error.message || 'Não foi possível redirecionar para o pagamento. Tente novamente.',
+            description: error.message,
             variant: 'destructive',
         });
         setIsRedirecting(false);
     }
   };
 
+  const renderCurrentPlan = () => {
+    if (!subscription?.stripeSubscriptionId) return null;
+    
+    const renewalDate = subscription.stripeCurrentPeriodEnd 
+      ? new Date(subscription.stripeCurrentPeriodEnd * 1000).toLocaleDateString('pt-BR')
+      : 'N/A';
+      
+    return (
+      <Card>
+        <CardHeader>
+          <div className="flex justify-between items-start">
+              <div>
+                <CardTitle>Seu Plano Atual</CardTitle>
+                <CardDescription>Próxima renovação em {renewalDate}.</CardDescription>
+              </div>
+               <Badge variant="secondary" className="text-base bg-green-100 text-green-800 border-green-300">
+                <Star className="mr-2 h-4 w-4 text-yellow-500 fill-current" />
+                {proPlan.name}
+               </Badge>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <p className="text-3xl font-bold">{proPlan.price}</p>
+            <ul className="space-y-2 text-muted-foreground">
+              {proPlan.features.map((feature, index) => (
+                <li key={index} className="flex items-center gap-2">
+                  <CheckCircle className="h-5 w-5 text-green-500" />
+                  <span>{feature}</span>
+                </li>
+              ))}
+            </ul>
+             <Separator className="my-4" />
+            <Button className="w-full justify-between" onClick={() => handleSubscriptionAction(subscription.stripePriceId)} disabled={isRedirecting}>
+                {isRedirecting ? (
+                    <> <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Redirecionando... </>
+                ) : (
+                    <> <span>Gerenciar Assinatura</span> <ArrowRight /> </>
+                )}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  };
+  
+  const renderUpgradeCard = () => {
+     if (subscription?.stripeSubscriptionId) return null;
+     return (
+        <Card className="border-primary border-2 shadow-lg">
+            <CardHeader>
+                <div className="flex justify-between items-center">
+                    <CardTitle className="text-2xl">{proPlan.name}</CardTitle>
+                    <Star className="h-6 w-6 text-yellow-500 fill-current"/>
+                </div>
+                <CardDescription>Acesso total a todos os recursos da plataforma.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <p className="text-4xl font-bold mb-4">{proPlan.price}</p>
+                <ul className="space-y-2 text-muted-foreground mb-6">
+                    {proPlan.features.map((feature, index) => (
+                        <li key={index} className="flex items-center gap-2">
+                            <CheckCircle className="h-5 w-5 text-primary" />
+                            <span>{feature}</span>
+                        </li>
+                    ))}
+                </ul>
+                <Button size="lg" className="w-full" onClick={() => handleSubscriptionAction(proPlan.priceId)} disabled={isRedirecting}>
+                    {isRedirecting ? (
+                        <> <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Redirecionando... </>
+                    ) : (
+                        'Fazer Upgrade para o Pro'
+                    )}
+                </Button>
+            </CardContent>
+        </Card>
+     );
+  }
+
+  const renderSkeleton = () => (
+    <div className="space-y-6">
+        <Card>
+            <CardHeader>
+                <Skeleton className="h-8 w-1/2" />
+                <Skeleton className="h-4 w-1/3" />
+            </CardHeader>
+            <CardContent>
+                <div className="space-y-4">
+                    <Skeleton className="h-10 w-1/4" />
+                    <div className="space-y-2">
+                        <Skeleton className="h-5 w-full" />
+                        <Skeleton className="h-5 w-5/6" />
+                        <Skeleton className="h-5 w-full" />
+                    </div>
+                </div>
+            </CardContent>
+        </Card>
+    </div>
+  );
 
   return (
     <>
@@ -84,117 +258,10 @@ export default function SubscriptionPage() {
           <p className="text-sm text-muted-foreground">Veja os detalhes do seu plano e gerencie suas faturas.</p>
         </div>
       </header>
-      <main className="flex-1 p-6 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        <div className="lg:col-span-2 space-y-6">
-          <Card>
-            <CardHeader>
-              <div className="flex justify-between items-start">
-                  <div>
-                    <CardTitle>Seu Plano Atual</CardTitle>
-                    <CardDescription>Próxima renovação em {currentPlan.renewsOn}.</CardDescription>
-                  </div>
-                   <Badge variant="secondary" className="text-base">{currentPlan.name}</Badge>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <p className="text-3xl font-bold">{currentPlan.price}</p>
-                <ul className="space-y-2 text-muted-foreground">
-                  {currentPlan.features.map((feature, index) => (
-                    <li key={index} className="flex items-center gap-2">
-                      <CheckCircle className="h-5 w-5 text-green-500" />
-                      <span>{feature}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardHeader>
-                <CardTitle>Histórico de Faturamento</CardTitle>
-                <CardDescription>Visualize e baixe suas faturas anteriores.</CardDescription>
-            </CardHeader>
-             <CardContent>
-                <table className="w-full text-sm">
-                    <thead>
-                        <tr className="text-left text-muted-foreground">
-                            <th className="pb-2 font-normal">Data</th>
-                            <th className="pb-2 font-normal">Valor</th>
-                            <th className="pb-2 font-normal text-right">Ação</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr className="border-b">
-                            <td className="py-2">25 de Julho de 2024</td>
-                            <td className="py-2">R$ 49,90</td>
-                            <td className="py-2 text-right">
-                                <Button variant="outline" size="sm">Download</Button>
-                            </td>
-                        </tr>
-                        <tr className="border-b">
-                            <td className="py-2">25 de Junho de 2024</td>
-                            <td className="py-2">R$ 49,90</td>
-                            <td className="py-2 text-right">
-                                <Button variant="outline" size="sm">Download</Button>
-                            </td>
-                        </tr>
-                         <tr className="border-b">
-                            <td className="py-2">25 de Maio de 2024</td>
-                            <td className="py-2">R$ 49,90</td>
-                            <td className="py-2 text-right">
-                                <Button variant="outline" size="sm">Download</Button>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="space-y-6">
-            <Card>
-                <CardHeader>
-                    <CardTitle>Forma de Pagamento</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <div className="flex items-center gap-4 p-4 border rounded-lg">
-                        <div className="w-10 h-7 bg-muted rounded-md flex items-center justify-center font-bold text-xs">
-                           {paymentMethod.brand}
-                        </div>
-                        <div>
-                            <p className="font-medium">Final •••• {paymentMethod.last4}</p>
-                            <p className="text-sm text-muted-foreground">Expira em {paymentMethod.expires}</p>
-                        </div>
-                    </div>
-                </CardContent>
-            </Card>
-
-             <Card>
-                <CardHeader>
-                    <CardTitle>Opções da Assinatura</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    <Button className="w-full justify-between" onClick={handleUpgradeClick} disabled={isRedirecting}>
-                        {isRedirecting ? (
-                            <>
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                Redirecionando...
-                            </>
-                        ) : (
-                            <>
-                                <span>Alterar Plano</span>
-                                <ArrowRight />
-                            </>
-                        )}
-                    </Button>
-                     <Button variant="outline" className="w-full text-red-500 hover:text-red-600 hover:border-red-500">
-                        Cancelar Assinatura
-                    </Button>
-                </CardContent>
-            </Card>
-        </div>
+      <main className="flex-1 p-6">
+        {isLoading ? renderSkeleton() : (
+            subscription?.stripeSubscriptionId ? renderCurrentPlan() : renderUpgradeCard()
+        )}
       </main>
     </>
   );
