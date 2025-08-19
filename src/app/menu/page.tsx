@@ -33,12 +33,15 @@ import { Logo } from '@/components/logo';
 
 type Restaurant = {
   id: string; // Cleaned CNPJ
-  originalCnpj: string;
   restaurantName: string;
+  bannerImageId?: string;
+  address?: {
+    city: string;
+    state: string;
+  }
   hours?: Record<string, { isOpen: boolean; openTime: string; closeTime: string }>;
   whatsappOrderNumber?: string;
   delivery?: boolean;
-  bannerImageId?: string;
 };
 
 type Category = { id: string; name: string };
@@ -77,45 +80,77 @@ const formatCurrency = (value: number) => {
 
 function RestaurantSearchPage() {
     const [searchQuery, setSearchQuery] = useState('');
-    const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
-    const [isLoading, setIsLoading] = useState(false);
-    const [hasSearched, setHasSearched] = useState(false);
+    const [allRestaurants, setAllRestaurants] = useState<Restaurant[]>([]);
+    const [displayedRestaurants, setDisplayedRestaurants] = useState<Restaurant[]>([]);
+    const [images, setImages] = useState<Record<string, Record<string, ImageInfo>>>({});
+    const [isLoading, setIsLoading] = useState(true);
 
-    const handleSearch = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!searchQuery.trim()) return;
-        
-        setIsLoading(true);
-        setHasSearched(true);
-        try {
-            const usersRef = ref(realtimeDb, 'users');
-            const snapshot = await get(usersRef);
-            if (snapshot.exists()) {
-                const usersData = snapshot.val();
-                const allRestaurants: Restaurant[] = Object.keys(usersData).map(id => ({
-                    id: id,
-                    restaurantName: usersData[id].restaurantName,
-                    originalCnpj: usersData[id].cnpj,
-                }));
+    useEffect(() => {
+        const fetchInitialRestaurants = async () => {
+            setIsLoading(true);
+            try {
+                const usersRef = ref(realtimeDb, 'users');
+                const imagesRef = ref(realtimeDb, 'images');
 
-                const filtered = allRestaurants.filter(r => 
-                    r.restaurantName.toLowerCase().includes(searchQuery.toLowerCase())
-                );
-                setRestaurants(filtered);
-            } else {
-                setRestaurants([]);
+                const [usersSnapshot, imagesSnapshot] = await Promise.all([get(usersRef), get(imagesRef)]);
+
+                let loadedRestaurants: Restaurant[] = [];
+                if (usersSnapshot.exists()) {
+                    const usersData = usersSnapshot.val();
+                    loadedRestaurants = Object.keys(usersData).map(id => ({
+                        id: id,
+                        ...usersData[id]
+                    }));
+                }
+                
+                if (imagesSnapshot.exists()) {
+                    setImages(imagesSnapshot.val());
+                }
+
+                setAllRestaurants(loadedRestaurants);
+
+                // Shuffle and pick 10 random restaurants to display initially
+                const shuffled = [...loadedRestaurants].sort(() => 0.5 - Math.random());
+                setDisplayedRestaurants(shuffled.slice(0, 10));
+
+            } catch (error) {
+                console.error("Error fetching initial restaurants:", error);
+            } finally {
+                setIsLoading(false);
             }
-        } catch (error) {
-            console.error("Error searching restaurants:", error);
-            setRestaurants([]);
-        } finally {
-            setIsLoading(false);
+        };
+
+        fetchInitialRestaurants();
+    }, []);
+
+    const handleSearch = (e: React.FormEvent) => {
+        e.preventDefault();
+        const query = searchQuery.trim().toLowerCase();
+
+        if (!query) {
+            // If search is cleared, show random restaurants again
+            const shuffled = [...allRestaurants].sort(() => 0.5 - Math.random());
+            setDisplayedRestaurants(shuffled.slice(0, 10));
+            return;
         }
+        
+        const filtered = allRestaurants.filter(r => 
+            r.restaurantName.toLowerCase().includes(query)
+        );
+        setDisplayedRestaurants(filtered);
     };
+
+    const getBannerUrl = (restaurant: Restaurant) => {
+        if(restaurant.bannerImageId && images[restaurant.id] && images[restaurant.id][restaurant.bannerImageId]) {
+            return images[restaurant.id][restaurant.bannerImageId].filePath;
+        }
+        return 'https://placehold.co/600x400.png';
+    }
+
 
     return (
         <div className="min-h-screen bg-muted/20 flex flex-col items-center">
-             <header className="w-full p-4 border-b bg-background">
+             <header className="w-full p-4 border-b bg-background sticky top-0 z-50">
                 <div className="container mx-auto flex justify-between items-center">
                     <Logo />
                     <Button asChild variant="outline">
@@ -126,9 +161,9 @@ function RestaurantSearchPage() {
             <main className="container mx-auto px-4 py-12 flex-grow flex flex-col items-center text-center">
                 <Utensils className="h-16 w-16 text-primary mb-4" />
                 <h1 className="text-4xl font-bold tracking-tight mb-2">Encontre um Restaurante</h1>
-                <p className="text-lg text-muted-foreground mb-8">Digite o nome do restaurante que você está procurando.</p>
+                <p className="text-lg text-muted-foreground mb-8">Digite o nome do restaurante ou descubra novos lugares abaixo.</p>
 
-                <form onSubmit={handleSearch} className="w-full max-w-lg flex gap-2">
+                <form onSubmit={handleSearch} className="w-full max-w-lg flex gap-2 mb-12">
                     <Input 
                         type="search"
                         placeholder="Ex: Cantina da Mama"
@@ -136,33 +171,48 @@ function RestaurantSearchPage() {
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                     />
-                    <Button type="submit" disabled={isLoading}>
-                        {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
+                    <Button type="submit">
+                        <Search className="mr-2 h-4 w-4" />
                         Buscar
                     </Button>
                 </form>
 
-                <div className="w-full max-w-lg mt-8">
-                    {isLoading ? (
-                         <Loader2 className="mx-auto h-8 w-8 animate-spin text-primary" />
-                    ) : hasSearched ? (
-                         restaurants.length > 0 ? (
-                            <div className="space-y-4 text-left">
-                                {restaurants.map(resto => (
-                                    <Link key={resto.id} href={`/menu?id=${resto.id}`}>
-                                        <Card className="hover:bg-accent hover:shadow-md transition-all">
-                                            <CardHeader>
-                                                <CardTitle>{resto.restaurantName}</CardTitle>
-                                            </CardHeader>
-                                        </Card>
-                                    </Link>
-                                ))}
-                            </div>
-                        ) : (
-                            <p className="text-muted-foreground">Nenhum restaurante encontrado com esse nome.</p>
-                        )
-                    ) : null}
-                </div>
+                {isLoading ? (
+                     <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 w-full">
+                        {[...Array(3)].map((_, i) => (
+                             <Card key={i}><Skeleton className="h-64 w-full" /></Card>
+                        ))}
+                    </div>
+                ) : displayedRestaurants.length > 0 ? (
+                    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 w-full text-left">
+                        {displayedRestaurants.map(resto => (
+                            <Link key={resto.id} href={`/menu?id=${resto.id}`}>
+                                <Card className="hover:shadow-lg transition-shadow duration-300 flex flex-col h-full">
+                                    <CardContent className="p-0">
+                                        <div className="relative h-40 w-full">
+                                            <Image 
+                                                src={getBannerUrl(resto)}
+                                                alt={`Banner de ${resto.restaurantName}`}
+                                                fill 
+                                                objectFit="cover" 
+                                                className="rounded-t-lg" 
+                                                data-ai-hint="restaurant food" 
+                                            />
+                                        </div>
+                                    </CardContent>
+                                    <div className="p-4 flex-grow flex flex-col">
+                                        <CardTitle className="text-xl mb-2">{resto.restaurantName}</CardTitle>
+                                        {resto.address && (
+                                            <p className="text-sm text-muted-foreground">{`${resto.address.city}, ${resto.address.state}`}</p>
+                                        )}
+                                    </div>
+                                </Card>
+                            </Link>
+                        ))}
+                    </div>
+                ) : (
+                    <p className="text-muted-foreground">Nenhum restaurante encontrado.</p>
+                )}
             </main>
         </div>
     );
@@ -170,7 +220,7 @@ function RestaurantSearchPage() {
 
 
 function MenuDisplayPage({ restaurantId }: { restaurantId: string }) {
-    const [restaurant, setRestaurant] = useState<Omit<Restaurant, 'id' | 'originalCnpj'> | null>(null);
+    const [restaurant, setRestaurant] = useState<Omit<Restaurant, 'id'> | null>(null);
     const [categories, setCategories] = useState<Category[]>([]);
     const [products, setProducts] = useState<Product[]>([]);
     const [addons, setAddons] = useState<Addon[]>([]);
@@ -204,11 +254,12 @@ function MenuDisplayPage({ restaurantId }: { restaurantId: string }) {
             setIsLoading(true);
             setError(null);
             try {
-                const userRef = ref(realtimeDb, `users/${restaurantId}`);
-                const categoriesRef = ref(realtimeDb, `categories/${restaurantId}`);
-                const productsRef = ref(realtimeDb, `products/${restaurantId}`);
-                const addonsRef = ref(realtimeDb, `add-ons/${restaurantId}`);
-                const imagesRef = ref(realtimeDb, `images/${restaurantId}`);
+                const cleanedId = restaurantId.replace(/[.\-/]/g, '');
+                const userRef = ref(realtimeDb, `users/${cleanedId}`);
+                const categoriesRef = ref(realtimeDb, `categories/${cleanedId}`);
+                const productsRef = ref(realtimeDb, `products/${cleanedId}`);
+                const addonsRef = ref(realtimeDb, `add-ons/${cleanedId}`);
+                const imagesRef = ref(realtimeDb, `images/${cleanedId}`);
 
                 const [userSnap, catSnap, prodSnap, addonSnap, imgSnap] = await Promise.all([
                     get(userRef),
@@ -634,9 +685,11 @@ function MenuDisplayPage({ restaurantId }: { restaurantId: string }) {
                         objectFit="cover"
                         className="rounded-t-lg"
                         data-ai-hint="pizza food"/>
-                    <DialogClose className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground bg-white/50 hover:bg-white/80 p-1">
-                        <Plus className="h-4 w-4 rotate-45" />
-                        <span className="sr-only">Close</span>
+                    <DialogClose asChild>
+                        <button className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground bg-white/50 hover:bg-white/80 p-1">
+                            <X className="h-4 w-4" />
+                            <span className="sr-only">Close</span>
+                        </button>
                     </DialogClose>
                 </div>
                 <div className="p-6">
@@ -701,5 +754,3 @@ export default function MenuPage() {
 
     return <RestaurantSearchPage />;
 }
-
-    
