@@ -161,7 +161,7 @@ export default function SubscriptionPage() {
   };
 
   const renderCurrentPlan = () => {
-    // Correct Logic: If the user has an active subscription, show the management card.
+    // If user has an active subscription, show the management card.
     if (subscription?.stripeSubscriptionStatus === 'active') {
         const renewalDate = subscription.stripeCurrentPeriodEnd 
           ? new Date(subscription.stripeCurrentPeriodEnd * 1000).toLocaleDateString('pt-BR')
@@ -207,40 +207,36 @@ export default function SubscriptionPage() {
     }
     
     // If not active, show the upgrade card.
-    return renderUpgradeCard();
-  };
-  
-  const renderUpgradeCard = () => {
-     return (
-        <Card className="border-primary border-2 shadow-lg">
-            <CardHeader>
-                <div className="flex justify-between items-center">
-                    <CardTitle className="text-2xl">{proPlan.name}</CardTitle>
-                    <Star className="h-6 w-6 text-yellow-500 fill-current"/>
-                </div>
-                <CardDescription>Acesso total a todos os recursos da plataforma.</CardDescription>
-            </CardHeader>
-            <CardContent>
-                <p className="text-4xl font-bold mb-4">{proPlan.price}</p>
-                <ul className="space-y-2 text-muted-foreground mb-6">
-                    {proPlan.features.map((feature, index) => (
-                        <li key={index} className="flex items-center gap-2">
-                            <CheckCircle className="h-5 w-5 text-primary" />
-                            <span>{feature}</span>
-                        </li>
-                    ))}
-                </ul>
-                <Button size="lg" className="w-full" onClick={handleSubscriptionAction} disabled={isRedirecting || !proPlan.priceId}>
-                    {isRedirecting ? (
-                        <> <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Redirecionando... </>
-                    ) : (
-                       !proPlan.priceId ? 'Configuração de Plano Pendente' : 'Fazer Upgrade para o Pro'
-                    )}
-                </Button>
-                 {!proPlan.priceId && <p className="text-xs text-center text-destructive mt-2">O ID do plano não está configurado.</p>}
-            </CardContent>
-        </Card>
-     );
+    return (
+       <Card className="border-primary border-2 shadow-lg">
+           <CardHeader>
+               <div className="flex justify-between items-center">
+                   <CardTitle className="text-2xl">{proPlan.name}</CardTitle>
+                   <Star className="h-6 w-6 text-yellow-500 fill-current"/>
+               </div>
+               <CardDescription>Acesso total a todos os recursos da plataforma.</CardDescription>
+           </CardHeader>
+           <CardContent>
+               <p className="text-4xl font-bold mb-4">{proPlan.price}</p>
+               <ul className="space-y-2 text-muted-foreground mb-6">
+                   {proPlan.features.map((feature, index) => (
+                       <li key={index} className="flex items-center gap-2">
+                           <CheckCircle className="h-5 w-5 text-primary" />
+                           <span>{feature}</span>
+                       </li>
+                   ))}
+               </ul>
+               <Button size="lg" className="w-full" onClick={handleSubscriptionAction} disabled={isRedirecting || !proPlan.priceId}>
+                   {isRedirecting ? (
+                       <> <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Redirecionando... </>
+                   ) : (
+                      !proPlan.priceId ? 'Configuração de Plano Pendente' : 'Fazer Upgrade para o Pro'
+                   )}
+               </Button>
+                {!proPlan.priceId && <p className="text-xs text-center text-destructive mt-2">O ID do plano não está configurado.</p>}
+           </CardContent>
+       </Card>
+    );
   }
 
   const renderSkeleton = () => (
@@ -279,5 +275,3 @@ export default function SubscriptionPage() {
     </>
   );
 }
-
-    
