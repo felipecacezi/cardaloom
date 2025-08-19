@@ -6,11 +6,13 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import Image from 'next/image';
+import { ref, onValue, get } from 'firebase/database';
+import { onAuthStateChanged, User } from 'firebase/auth';
 
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { PlusCircle, MoreVertical, Edit, Trash2, Search, Loader2, X, Eye, EyeOff } from 'lucide-react';
+import { PlusCircle, MoreVertical, Edit, Trash2, Search, Loader2, X, Eye, EyeOff, Sparkles } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -55,12 +57,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Separator } from '@/components/ui/separator';
 import { Combobox } from '@/components/ui/combobox';
 import { Switch } from '@/components/ui/switch';
+import { auth, realtimeDb } from '@/lib/firebase';
+import { suggestProductDescription, SuggestProductDescriptionInput } from '@/ai/flows/suggest-product-descriptions';
 
 
 type Addon = {
-  id: number;
+  id: string;
   name: string;
   price: number;
+};
+
+type Category = {
+  id: string;
+  name: string;
 };
 
 type Product = {
@@ -76,9 +85,9 @@ type Product = {
 
 const productsData: Product[] = [
     { id: 1, name: 'Pizza Margherita', price: 45.00, description: 'Molho de tomate, mussarela fresca e manjericão.', category: 'Pizzas Salgadas', image: 'https://placehold.co/100x100.png', addons: [], isVisible: true },
-    { id: 2, name: 'Pizza Calabresa', price: 48.50, description: 'Molho de tomate, mussarela, calabresa e cebola.', category: 'Pizzas Salgadas', image: 'https://placehold.co/100x100.png', addons: [{ id: 1, name: 'Borda Recheada Catupiry', price: 8.00 }, { id: 3, name: 'Bacon Extra', price: 6.50 }], isVisible: true },
-    { id: 3, name: 'Pizza Quatro Queijos', price: 52.00, description: 'Molho de tomate, mussarela, provolone, parmesão e gorgonzola.', category: 'Pizzas Salgadas', image: 'https://placehold.co/100x100.png', addons: [{ id: 1, name: 'Borda Recheada Catupiry', price: 8.00 }, { id: 2, name: 'Borda Recheada Cheddar', price: 8.00 }], isVisible: true },
-    { id: 4, name: 'Pizza Portuguesa', price: 50.00, description: 'Molho, mussarela, presunto, ovo, cebola, pimentão e azeitona.', category: 'Pizzas Salgadas', image: 'https://placehold.co/100x100.png', addons: [{id: 6, name: 'Ovo', price: 3.00}], isVisible: true },
+    { id: 2, name: 'Pizza Calabresa', price: 48.50, description: 'Molho de tomate, mussarela, calabresa e cebola.', category: 'Pizzas Salgadas', image: 'https://placehold.co/100x100.png', addons: [], isVisible: true },
+    { id: 3, name: 'Pizza Quatro Queijos', price: 52.00, description: 'Molho de tomate, mussarela, provolone, parmesão e gorgonzola.', category: 'Pizzas Salgadas', image: 'https://placehold.co/100x100.png', addons: [], isVisible: true },
+    { id: 4, name: 'Pizza Portuguesa', price: 50.00, description: 'Molho, mussarela, presunto, ovo, cebola, pimentão e azeitona.', category: 'Pizzas Salgadas', image: 'https://placehold.co/100x100.png', addons: [], isVisible: true },
     { id: 5, name: 'Pizza Frango com Catupiry', price: 51.00, description: 'Molho de tomate, frango desfiado coberto com Catupiry.', category: 'Pizzas Salgadas', image: 'https://placehold.co/100x100.png', addons: [], isVisible: true },
     { id: 6, name: 'Pizza de Chocolate com Morango', price: 42.00, description: 'Deliciosa pizza doce com chocolate ao leite e morangos frescos.', category: 'Pizzas Doces', image: 'https://placehold.co/100x100.png', addons: [], isVisible: true },
     { id: 7, name: 'Pizza Romeu e Julieta', price: 40.00, description: 'Mussarela derretida com uma generosa camada de goiabada.', category: 'Pizzas Doces', image: 'https://placehold.co/100x100.png', addons: [], isVisible: true },
@@ -89,23 +98,6 @@ const productsData: Product[] = [
     { id: 12, name: 'Mousse de Maracujá', price: 9.00, description: 'Azedinho e doce na medida certa.', category: 'Sobremesas', image: 'https://placehold.co/100x100.png', addons: [], isVisible: true },
 ];
 
-const categoriesData = [
-  { id: 1, name: 'Pizzas Salgadas' },
-  { id: 2, name: 'Pizzas Doces' },
-  { id: 3, name: 'Bebidas' },
-  { id: 4, name: 'Sobremesas' },
-];
-
-const addonsData: Addon[] = [
-    { id: 1, name: 'Borda Recheada Catupiry', price: 8.00 },
-    { id: 2, name: 'Borda Recheada Cheddar', price: 8.00 },
-    { id: 3, name: 'Bacon Extra', price: 6.50 },
-    { id: 4, name: 'Catupiry Extra', price: 5.00 },
-    { id: 5, name: 'Cheddar Extra', price: 5.00 },
-    { id: 6, name: 'Ovo', price: 3.00 },
-    { id: 7, name: 'Batata Frita P', price: 12.00 },
-    { id: 8, name: 'Guaraná Antarctica 2L', price: 10.00 },
-];
 
 const unformatCurrency = (value: string) => {
     if (typeof value !== 'string') return 0;
@@ -121,13 +113,15 @@ const formSchema = z.object({
   description: z.string().min(5, { message: "A descrição é obrigatória." }),
   category: z.string({ required_error: "A categoria é obrigatória."}),
   image: z.any(),
-  addonIds: z.array(z.number()).optional(),
+  addonIds: z.array(z.string()).optional(),
   isVisible: z.boolean().default(true),
 });
 
 
 export default function ProductsPage() {
   const [products, setProducts] = useState(productsData);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [addons, setAddons] = useState<Addon[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -135,6 +129,11 @@ export default function ProductsPage() {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [deletingProduct, setDeletingProduct] = useState<Product | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [isGeneratingDescription, setIsGeneratingDescription] = useState(false);
+  
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [userCnpj, setUserCnpj] = useState<string | null>(null);
+
 
   const itemsPerPage = 5;
   const { toast } = useToast();
@@ -156,6 +155,67 @@ export default function ProductsPage() {
     resolver: zodResolver(formSchema),
     defaultValues: { name: '', price: '', description: '', category: '', addonIds: [], isVisible: true },
   });
+
+   useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        setCurrentUser(user);
+      } else {
+        // Handle unauthenticated state if necessary
+        setCurrentUser(null);
+        setUserCnpj(null);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (currentUser) {
+      const usersRef = ref(realtimeDb, 'users');
+      get(usersRef).then((snapshot) => {
+        if (snapshot.exists()) {
+          const usersData = snapshot.val();
+          const userCnpj = Object.keys(usersData).find(
+            (cnpj) => usersData[cnpj].authUid === currentUser.uid
+          );
+          
+          if (userCnpj) {
+            setUserCnpj(userCnpj);
+          } else {
+            console.error("User CNPJ not found for UID:", currentUser.uid);
+            toast({ title: "Erro", description: "Não foi possível encontrar os dados do seu restaurante.", variant: "destructive" });
+          }
+        }
+      }).catch((error) => {
+        console.error("Error fetching user data:", error);
+        toast({ title: "Erro de Conexão", description: "Não foi possível buscar os dados do usuário.", variant: "destructive" });
+      });
+    }
+  }, [currentUser, toast]);
+
+  useEffect(() => {
+    if (userCnpj) {
+      const categoriesRef = ref(realtimeDb, `categories/${userCnpj}`);
+      const addonsRef = ref(realtimeDb, `add-ons/${userCnpj}`);
+
+      const unsubscribeCategories = onValue(categoriesRef, (snapshot) => {
+        const data = snapshot.val();
+        const loadedCategories: Category[] = data ? Object.keys(data).map(key => ({ id: key, ...data[key] })) : [];
+        setCategories(loadedCategories);
+      });
+
+      const unsubscribeAddons = onValue(addonsRef, (snapshot) => {
+        const data = snapshot.val();
+        const loadedAddons: Addon[] = data ? Object.keys(data).map(key => ({ id: key, ...data[key] })) : [];
+        setAddons(loadedAddons);
+      });
+
+      return () => {
+        unsubscribeCategories();
+        unsubscribeAddons();
+      };
+    }
+  }, [userCnpj]);
 
   useEffect(() => {
     if (editingProduct) {
@@ -190,6 +250,40 @@ export default function ProductsPage() {
 
   const paginate = (pageNumber: number) => setCurrentPage(pageNumber);
 
+  async function handleGenerateDescription() {
+      const { name, category } = form.getValues();
+      if (!name || !category) {
+        toast({
+          title: "Campos Faltando",
+          description: "Por favor, preencha o nome do produto e a categoria para gerar uma descrição.",
+          variant: "destructive"
+        });
+        return;
+      }
+      setIsGeneratingDescription(true);
+      try {
+        const result = await suggestProductDescription({
+            productName: name,
+            productCategory: category,
+            ingredients: '', // Ingredients are not in the form, can be added if needed
+        });
+        form.setValue('description', result.description);
+         toast({
+          title: "Descrição Gerada!",
+          description: "A sugestão de descrição foi preenchida para você.",
+        });
+      } catch (error) {
+        toast({
+          title: "Erro ao Gerar Descrição",
+          description: "Não foi possível gerar a descrição. Tente novamente.",
+          variant: "destructive"
+        });
+      } finally {
+        setIsGeneratingDescription(false);
+      }
+  }
+
+
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsUploading(true);
     let imageUrl = editingProduct?.image || 'https://placehold.co/100x100.png';
@@ -223,7 +317,7 @@ export default function ProductsPage() {
         }
     }
     
-    const selectedAddons = addonsData.filter(addon => values.addonIds?.includes(addon.id));
+    const selectedAddons = addons.filter(addon => values.addonIds?.includes(addon.id));
     const finalPrice = unformatCurrency(values.price);
 
 
@@ -290,10 +384,10 @@ export default function ProductsPage() {
     }
     
     const selectedAddonIds = form.watch('addonIds') || [];
-    const selectedAddons = addonsData.filter(addon => selectedAddonIds.includes(addon.id));
+    const selectedAddons = addons.filter(addon => selectedAddonIds.includes(addon.id));
 
-    const addonOptions = addonsData.map(addon => ({
-        value: addon.id.toString(),
+    const addonOptions = addons.map(addon => ({
+        value: addon.id,
         label: `${addon.name} (${formatCurrency(addon.price)})`,
     }));
 
@@ -339,12 +433,12 @@ export default function ProductsPage() {
                     <FormLabel>Categoria</FormLabel>
                     <Select onValueChange={field.onChange} defaultValue={field.value}>
                         <FormControl>
-                            <SelectTrigger>
-                                <SelectValue placeholder="Selecione uma categoria" />
+                            <SelectTrigger disabled={categories.length === 0}>
+                                <SelectValue placeholder={categories.length > 0 ? "Selecione uma categoria" : "Nenhuma categoria cadastrada"} />
                             </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                            {categoriesData.map(cat => (
+                            {categories.map(cat => (
                                 <SelectItem key={cat.id} value={cat.name}>{cat.name}</SelectItem>
                             ))}
                         </SelectContent>
@@ -359,9 +453,21 @@ export default function ProductsPage() {
             render={({ field }) => (
                 <FormItem>
                     <FormLabel>Descrição</FormLabel>
-                    <FormControl>
-                        <Textarea rows={4} placeholder="Descreva o produto, seus ingredientes, etc." {...field} />
-                    </FormControl>
+                     <div className="flex items-center gap-2">
+                        <FormControl>
+                            <Textarea rows={4} placeholder="Descreva o produto, seus ingredientes, etc." {...field} />
+                        </FormControl>
+                        <Button 
+                            type="button" 
+                            variant="outline" 
+                            size="icon" 
+                            onClick={handleGenerateDescription} 
+                            disabled={isGeneratingDescription}
+                            title="Gerar descrição com IA"
+                        >
+                            {isGeneratingDescription ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                        </Button>
+                    </div>
                     <FormMessage />
                 </FormItem>
             )}
@@ -420,14 +526,13 @@ export default function ProductsPage() {
                     <FormLabel>Adicionais</FormLabel>
                     <Combobox
                         options={addonOptions}
-                        placeholder="Selecione um adicional..."
+                        placeholder={addons.length > 0 ? "Selecione um adicional..." : "Nenhum adicional cadastrado"}
                         searchPlaceholder="Pesquisar adicional..."
                         notFoundText="Nenhum adicional encontrado."
                         value={''}
                         onSelect={(value) => {
-                            const addonId = parseInt(value, 10);
-                            if (!field.value?.includes(addonId)) {
-                                field.onChange([...(field.value || []), addonId]);
+                            if (!field.value?.includes(value)) {
+                                field.onChange([...(field.value || []), value]);
                             }
                         }}
                     />
@@ -629,7 +734,3 @@ export default function ProductsPage() {
     </>
   );
 }
-
-    
-
-    
