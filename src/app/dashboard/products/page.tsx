@@ -6,7 +6,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import Image from 'next/image';
-import { ref, onValue, get } from 'firebase/database';
+import { ref, onValue, get, push, set, remove } from 'firebase/database';
 import { onAuthStateChanged, User } from 'firebase/auth';
 
 import { SidebarTrigger } from '@/components/ui/sidebar';
@@ -58,7 +58,7 @@ import { Separator } from '@/components/ui/separator';
 import { Combobox } from '@/components/ui/combobox';
 import { Switch } from '@/components/ui/switch';
 import { auth, realtimeDb } from '@/lib/firebase';
-import { suggestProductDescription, SuggestProductDescriptionInput } from '@/ai/flows/suggest-product-descriptions';
+import { suggestProductDescription } from '@/ai/flows/suggest-product-descriptions';
 
 
 type Addon = {
@@ -73,31 +73,15 @@ type Category = {
 };
 
 type Product = {
-  id: number;
+  id: string;
   name: string;
   price: number;
   description: string;
   category: string;
   image: string;
-  addons: Addon[];
+  addons?: Record<string, boolean>; // Store addon IDs as keys
   isVisible: boolean;
 };
-
-const productsData: Product[] = [
-    { id: 1, name: 'Pizza Margherita', price: 45.00, description: 'Molho de tomate, mussarela fresca e manjericão.', category: 'Pizzas Salgadas', image: 'https://placehold.co/100x100.png', addons: [], isVisible: true },
-    { id: 2, name: 'Pizza Calabresa', price: 48.50, description: 'Molho de tomate, mussarela, calabresa e cebola.', category: 'Pizzas Salgadas', image: 'https://placehold.co/100x100.png', addons: [], isVisible: true },
-    { id: 3, name: 'Pizza Quatro Queijos', price: 52.00, description: 'Molho de tomate, mussarela, provolone, parmesão e gorgonzola.', category: 'Pizzas Salgadas', image: 'https://placehold.co/100x100.png', addons: [], isVisible: true },
-    { id: 4, name: 'Pizza Portuguesa', price: 50.00, description: 'Molho, mussarela, presunto, ovo, cebola, pimentão e azeitona.', category: 'Pizzas Salgadas', image: 'https://placehold.co/100x100.png', addons: [], isVisible: true },
-    { id: 5, name: 'Pizza Frango com Catupiry', price: 51.00, description: 'Molho de tomate, frango desfiado coberto com Catupiry.', category: 'Pizzas Salgadas', image: 'https://placehold.co/100x100.png', addons: [], isVisible: true },
-    { id: 6, name: 'Pizza de Chocolate com Morango', price: 42.00, description: 'Deliciosa pizza doce com chocolate ao leite e morangos frescos.', category: 'Pizzas Doces', image: 'https://placehold.co/100x100.png', addons: [], isVisible: true },
-    { id: 7, name: 'Pizza Romeu e Julieta', price: 40.00, description: 'Mussarela derretida com uma generosa camada de goiabada.', category: 'Pizzas Doces', image: 'https://placehold.co/100x100.png', addons: [], isVisible: true },
-    { id: 8, name: 'Coca-Cola 2L', price: 10.00, description: 'Refrigerante gelado para acompanhar sua pizza.', category: 'Bebidas', image: 'https://placehold.co/100x100.png', addons: [], isVisible: true },
-    { id: 9, name: 'Guaraná Antarctica 2L', price: 10.00, description: 'O sabor original do Brasil, bem gelado.', category: 'Bebidas', image: 'https://placehold.co/100x100.png', addons: [], isVisible: true },
-    { id: 10, name: 'Água Mineral sem Gás 500ml', price: 4.00, description: 'Para se manter hidratado.', category: 'Bebidas', image: 'https://placehold.co/100x100.png', addons: [], isVisible: false },
-    { id: 11, name: 'Pudim de Leite Condensado', price: 8.00, description: 'A sobremesa clássica que todo mundo ama.', category: 'Sobremesas', image: 'https://placehold.co/100x100.png', addons: [], isVisible: true },
-    { id: 12, name: 'Mousse de Maracujá', price: 9.00, description: 'Azedinho e doce na medida certa.', category: 'Sobremesas', image: 'https://placehold.co/100x100.png', addons: [], isVisible: true },
-];
-
 
 const unformatCurrency = (value: string) => {
     if (typeof value !== 'string') return 0;
@@ -111,7 +95,7 @@ const formSchema = z.object({
       message: 'O preço deve ser um número positivo.'
   }),
   description: z.string().min(5, { message: "A descrição é obrigatória." }),
-  category: z.string({ required_error: "A categoria é obrigatória."}),
+  category: z.string({ required_error: "A categoria é obrigatória."}).min(1, "A categoria é obrigatória."),
   image: z.any(),
   addonIds: z.array(z.string()).optional(),
   isVisible: z.boolean().default(true),
@@ -119,7 +103,7 @@ const formSchema = z.object({
 
 
 export default function ProductsPage() {
-  const [products, setProducts] = useState(productsData);
+  const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [addons, setAddons] = useState<Addon[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -128,6 +112,7 @@ export default function ProductsPage() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [deletingProduct, setDeletingProduct] = useState<Product | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
   const [isGeneratingDescription, setIsGeneratingDescription] = useState(false);
   
@@ -161,9 +146,9 @@ export default function ProductsPage() {
       if (user) {
         setCurrentUser(user);
       } else {
-        // Handle unauthenticated state if necessary
         setCurrentUser(null);
         setUserCnpj(null);
+        setIsLoading(false);
       }
     });
     return () => unsubscribe();
@@ -175,28 +160,43 @@ export default function ProductsPage() {
       get(usersRef).then((snapshot) => {
         if (snapshot.exists()) {
           const usersData = snapshot.val();
-          const userCnpj = Object.keys(usersData).find(
-            (cnpj) => usersData[cnpj].authUid === currentUser.uid
+          const userEntry = Object.entries(usersData).find(
+            ([cnpj, data]) => (data as any).authUid === currentUser.uid
           );
-          
-          if (userCnpj) {
-            setUserCnpj(userCnpj);
+          if (userEntry) {
+            setUserCnpj(userEntry[0]);
           } else {
             console.error("User CNPJ not found for UID:", currentUser.uid);
             toast({ title: "Erro", description: "Não foi possível encontrar os dados do seu restaurante.", variant: "destructive" });
+            setIsLoading(false);
           }
+        } else {
+            setIsLoading(false);
         }
       }).catch((error) => {
         console.error("Error fetching user data:", error);
         toast({ title: "Erro de Conexão", description: "Não foi possível buscar os dados do usuário.", variant: "destructive" });
+        setIsLoading(false);
       });
     }
   }, [currentUser, toast]);
 
   useEffect(() => {
     if (userCnpj) {
+      const productsRef = ref(realtimeDb, `products/${userCnpj}`);
       const categoriesRef = ref(realtimeDb, `categories/${userCnpj}`);
       const addonsRef = ref(realtimeDb, `add-ons/${userCnpj}`);
+
+      const unsubscribeProducts = onValue(productsRef, (snapshot) => {
+        const data = snapshot.val();
+        const loadedProducts: Product[] = data ? Object.keys(data).map(key => ({ id: key, ...data[key] })) : [];
+        setProducts(loadedProducts);
+        setIsLoading(false);
+      }, (error) => {
+        console.error("Error loading products:", error);
+        toast({ title: "Erro", description: "Não foi possível carregar os produtos.", variant: "destructive" });
+        setIsLoading(false);
+      });
 
       const unsubscribeCategories = onValue(categoriesRef, (snapshot) => {
         const data = snapshot.val();
@@ -211,11 +211,12 @@ export default function ProductsPage() {
       });
 
       return () => {
+        unsubscribeProducts();
         unsubscribeCategories();
         unsubscribeAddons();
       };
     }
-  }, [userCnpj]);
+  }, [userCnpj, toast]);
 
   useEffect(() => {
     if (editingProduct) {
@@ -225,7 +226,7 @@ export default function ProductsPage() {
         description: editingProduct.description,
         category: editingProduct.category,
         image: editingProduct.image,
-        addonIds: editingProduct.addons.map(a => a.id),
+        addonIds: editingProduct.addons ? Object.keys(editingProduct.addons) : [],
         isVisible: editingProduct.isVisible,
       });
     } else {
@@ -264,7 +265,7 @@ export default function ProductsPage() {
       try {
         const result = await suggestProductDescription({
             productName: name,
-            productCategory: category,
+            productCategory: categories.find(c => c.name === category)?.name || category,
             ingredients: '', // Ingredients are not in the form, can be added if needed
         });
         form.setValue('description', result.description);
@@ -285,6 +286,11 @@ export default function ProductsPage() {
 
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
+    if (!userCnpj) {
+        toast({ title: "Erro", description: "Usuário não identificado.", variant: "destructive" });
+        return;
+    }
+
     setIsUploading(true);
     let imageUrl = editingProduct?.image || 'https://placehold.co/100x100.png';
 
@@ -317,40 +323,42 @@ export default function ProductsPage() {
         }
     }
     
-    const selectedAddons = addons.filter(addon => values.addonIds?.includes(addon.id));
-    const finalPrice = unformatCurrency(values.price);
-
-
-     if (editingProduct) {
-        setProducts(prev => prev.map(p =>
-            p.id === editingProduct.id ? { ...editingProduct, ...values, price: finalPrice, image: imageUrl, addons: selectedAddons, isVisible: values.isVisible } : p
-        ));
-        toast({
-            title: "Produto Atualizado!",
-            description: `O produto "${values.name}" foi atualizado com sucesso.`,
-        });
-        setIsEditModalOpen(false);
-        setEditingProduct(null);
-     } else {
-        const newProduct: Product = {
-            id: Date.now(),
-            name: values.name,
-            price: finalPrice,
-            description: values.description,
-            category: values.category,
-            image: imageUrl,
-            addons: selectedAddons,
-            isVisible: values.isVisible,
-        };
-        setProducts(prev => [...prev, newProduct]);
-        toast({
-            title: "Produto Criado!",
-            description: `O produto "${values.name}" foi adicionado com sucesso.`,
-        });
-        setIsCreateModalOpen(false);
-     }
-     form.reset({ name: '', price: '', description: '', category: '', image: null, addonIds: [], isVisible: true });
-     setIsUploading(false);
+    const productData = {
+        name: values.name,
+        price: unformatCurrency(values.price),
+        description: values.description,
+        category: values.category,
+        image: imageUrl,
+        addons: values.addonIds?.reduce((acc, id) => ({ ...acc, [id]: true }), {}),
+        isVisible: values.isVisible,
+    };
+    
+    try {
+        if (editingProduct) {
+            const productRef = ref(realtimeDb, `products/${userCnpj}/${editingProduct.id}`);
+            await set(productRef, productData);
+            toast({
+                title: "Produto Atualizado!",
+                description: `O produto "${values.name}" foi atualizado com sucesso.`,
+            });
+            setIsEditModalOpen(false);
+            setEditingProduct(null);
+        } else {
+            const productsRef = ref(realtimeDb, `products/${userCnpj}`);
+            const newProductRef = push(productsRef);
+            await set(newProductRef, productData);
+            toast({
+                title: "Produto Criado!",
+                description: `O produto "${values.name}" foi adicionado com sucesso.`,
+            });
+            setIsCreateModalOpen(false);
+        }
+        form.reset({ name: '', price: '', description: '', category: '', image: null, addonIds: [], isVisible: true });
+    } catch (error) {
+        toast({ title: "Erro ao salvar", description: "Não foi possível salvar o produto.", variant: "destructive" });
+    } finally {
+        setIsUploading(false);
+    }
   }
 
   const handleEditClick = (product: Product) => {
@@ -364,15 +372,29 @@ export default function ProductsPage() {
     setIsCreateModalOpen(true);
   }
 
-  const confirmDelete = () => {
-    if (!deletingProduct) return;
-    setProducts(prev => prev.filter(c => c.id !== deletingProduct.id));
-    toast({
-      title: "Produto Excluído!",
-      description: `O produto "${deletingProduct.name}" foi removido com sucesso.`,
-    });
-    setDeletingProduct(null);
+  const confirmDelete = async () => {
+    if (!deletingProduct || !userCnpj) return;
+
+    try {
+        const productRef = ref(realtimeDb, `products/${userCnpj}/${deletingProduct.id}`);
+        await remove(productRef);
+        toast({
+          title: "Produto Excluído!",
+          description: `O produto "${deletingProduct.name}" foi removido com sucesso.`,
+        });
+        setDeletingProduct(null);
+    } catch(error) {
+        toast({ title: "Erro ao excluir", description: "Não foi possível remover o produto.", variant: "destructive" });
+        setDeletingProduct(null);
+    }
   }
+
+  const getAddonsForProduct = (product: Product): Addon[] => {
+    if (!product.addons) return [];
+    const productAddonIds = Object.keys(product.addons);
+    return addons.filter(addon => productAddonIds.includes(addon.id));
+  };
+
 
   const renderFormFields = () => {
     const imageField = form.watch('image');
@@ -596,72 +618,84 @@ export default function ProductsPage() {
             </div>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Imagem</TableHead>
-                  <TableHead>Nome</TableHead>
-                  <TableHead>Categoria</TableHead>
-                  <TableHead>Preço</TableHead>
-                  <TableHead>Opcionais</TableHead>
-                  <TableHead className="text-right">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {currentProducts.map((product) => (
-                  <TableRow key={product.id}>
-                    <TableCell>
-                        {product.isVisible ? (
-                            <div className="flex items-center gap-2">
-                                <Eye className="h-4 w-4 text-green-500" />
-                                <span className="sr-only">Visível</span>
+            {isLoading ? (
+                <div className="flex justify-center items-center h-48">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                </div>
+            ) : (
+                <Table>
+                <TableHeader>
+                    <TableRow>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Imagem</TableHead>
+                    <TableHead>Nome</TableHead>
+                    <TableHead>Categoria</TableHead>
+                    <TableHead>Preço</TableHead>
+                    <TableHead>Opcionais</TableHead>
+                    <TableHead className="text-right">Ações</TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {currentProducts.length > 0 ? currentProducts.map((product) => (
+                    <TableRow key={product.id}>
+                        <TableCell>
+                            {product.isVisible ? (
+                                <div className="flex items-center gap-2">
+                                    <Eye className="h-4 w-4 text-green-500" />
+                                    <span className="sr-only">Visível</span>
+                                </div>
+                            ) : (
+                                <div className="flex items-center gap-2">
+                                    <EyeOff className="h-4 w-4 text-muted-foreground" />
+                                    <span className="sr-only">Oculto</span>
+                                </div>
+                            )}
+                        </TableCell>
+                        <TableCell>
+                            <Image src={product.image} alt={product.name} width={64} height={64} className="rounded-md object-cover" />
+                        </TableCell>
+                        <TableCell className="font-medium">{product.name}</TableCell>
+                        <TableCell><Badge variant="outline">{product.category}</Badge></TableCell>
+                        <TableCell>{formatCurrency(product.price)}</TableCell>
+                        <TableCell>
+                            <div className="flex flex-wrap gap-1">
+                                {getAddonsForProduct(product).length > 0 ? getAddonsForProduct(product).map(addon => (
+                                    <Badge key={addon.id} variant="secondary">{addon.name}</Badge>
+                                )) : <span className="text-xs text-muted-foreground">N/A</span>}
                             </div>
-                        ) : (
-                            <div className="flex items-center gap-2">
-                                <EyeOff className="h-4 w-4 text-muted-foreground" />
-                                 <span className="sr-only">Oculto</span>
-                            </div>
-                        )}
-                    </TableCell>
-                    <TableCell>
-                        <Image src={product.image} alt={product.name} width={64} height={64} className="rounded-md object-cover" />
-                    </TableCell>
-                    <TableCell className="font-medium">{product.name}</TableCell>
-                    <TableCell><Badge variant="outline">{product.category}</Badge></TableCell>
-                    <TableCell>{formatCurrency(product.price)}</TableCell>
-                    <TableCell>
-                        <div className="flex flex-wrap gap-1">
-                            {product.addons.length > 0 ? product.addons.map(addon => (
-                                <Badge key={addon.id} variant="secondary">{addon.name}</Badge>
-                            )) : <span className="text-xs text-muted-foreground">N/A</span>}
-                        </div>
-                    </TableCell>
-                    <TableCell className="text-right">
-                       <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon">
-                            <MoreVertical />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent>
-                          <DropdownMenuItem onClick={() => handleEditClick(product)}>
-                            <Edit className="mr-2 h-4 w-4" />
-                            <span>Editar</span>
-                          </DropdownMenuItem>
-                          <AlertDialogTrigger asChild>
-                             <DropdownMenuItem className="text-red-500" onSelect={() => setDeletingProduct(product)}>
-                                <Trash2 className="mr-2 h-4 w-4" />
-                                <span>Excluir</span>
+                        </TableCell>
+                        <TableCell className="text-right">
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon">
+                                <MoreVertical />
+                            </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent>
+                            <DropdownMenuItem onClick={() => handleEditClick(product)}>
+                                <Edit className="mr-2 h-4 w-4" />
+                                <span>Editar</span>
                             </DropdownMenuItem>
-                          </AlertDialogTrigger>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                            <AlertDialogTrigger asChild>
+                                <DropdownMenuItem className="text-red-500" onSelect={() => setDeletingProduct(product)}>
+                                    <Trash2 className="mr-2 h-4 w-4" />
+                                    <span>Excluir</span>
+                                </DropdownMenuItem>
+                            </AlertDialogTrigger>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                        </TableCell>
+                    </TableRow>
+                    )) : (
+                        <TableRow>
+                            <TableCell colSpan={7} className="text-center py-10 text-muted-foreground">
+                                Nenhum produto cadastrado ainda.
+                            </TableCell>
+                        </TableRow>
+                    )}
+                </TableBody>
+                </Table>
+            )}
           </CardContent>
           <CardFooter className="flex justify-between items-center">
             <span className="text-sm text-muted-foreground">
@@ -672,7 +706,7 @@ export default function ProductsPage() {
                 variant="outline"
                 size="sm"
                 onClick={() => paginate(currentPage - 1)}
-                disabled={currentPage === 1}
+                disabled={currentPage === 1 || totalPages === 0}
               >
                 Anterior
               </Button>
@@ -680,7 +714,7 @@ export default function ProductsPage() {
                 variant="outline"
                 size="sm"
                 onClick={() => paginate(currentPage + 1)}
-                disabled={currentPage === totalPages}
+                disabled={currentPage === totalPages || totalPages === 0}
               >
                 Próximo
               </Button>
