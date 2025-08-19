@@ -232,15 +232,6 @@ export default function ProductsPage() {
     }
   }, [userCnpj, toast]);
 
-  useEffect(() => {
-    form.reset(getDefaultFormValues());
-    if (editingProduct?.imageId && images[editingProduct.imageId]) {
-      setImagePreviewUrl(images[editingProduct.imageId].filePath);
-    } else {
-      setImagePreviewUrl(null);
-    }
-  }, [editingProduct, form, images]);
-  
   const getDefaultFormValues = () => {
     if(editingProduct) {
         return {
@@ -255,6 +246,16 @@ export default function ProductsPage() {
     }
     return { name: '', price: '', description: '', category: '', imageId: '', addonIds: [], isVisible: true };
   }
+
+  useEffect(() => {
+    form.reset(getDefaultFormValues());
+    if (editingProduct?.imageId && images[editingProduct.imageId]) {
+      setImagePreviewUrl(images[editingProduct.imageId].filePath);
+    } else {
+      setImagePreviewUrl(null);
+    }
+  }, [editingProduct, images]);
+  
 
   const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setSearchQuery(event.target.value);
@@ -400,7 +401,7 @@ export default function ProductsPage() {
     setIsModalOpen(false);
     setEditingProduct(null);
     setImagePreviewUrl(null);
-    form.reset(getDefaultFormValues());
+    form.reset({ name: '', price: '', description: '', category: '', imageId: '', addonIds: [], isVisible: true });
   }
 
   const confirmDelete = async () => {
@@ -535,6 +536,7 @@ export default function ProductsPage() {
                         accept="image/*"
                         onChange={handleImageUpload}
                         className="flex-1"
+                        disabled={isUploading}
                     />
                 </FormControl>
             </div>
