@@ -146,6 +146,10 @@ function DashboardLayoutContent({
 }
 
 const syncUserSubscription = async (user: User) => {
+    if (!user.email) {
+        console.error("User email is not available for subscription sync.");
+        return;
+    }
     try {
         const usersRef = ref(realtimeDb, 'users');
         const snapshot = await get(usersRef);
@@ -158,11 +162,16 @@ const syncUserSubscription = async (user: User) => {
 
             if (userEntry) {
                 const cnpj = userEntry[0];
-                await fetch('/api/stripe/sync-subscription', {
+                console.log(`Syncing subscription for user ${user.email} with CNPJ ${cnpj}`);
+                const response = await fetch('/api/stripe/sync-subscription', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ email: user.email, cnpj: cnpj }),
                 });
+                const result = await response.json();
+                console.log("Sync response:", result);
+            } else {
+                 console.error("Could not find user CNPJ to sync subscription.");
             }
         }
     } catch (error) {

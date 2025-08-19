@@ -99,19 +99,11 @@ export default function SubscriptionPage() {
   useEffect(() => {
     if (!userCnpj) return;
 
-    const userRef = ref(realtimeDb, `users/${userCnpj}`);
-    const unsubscribeDb = onValue(userRef, (snapshot) => {
-      if (snapshot.exists()) {
-        const userData = snapshot.val();
-        console.log("Dados da assinatura no Firebase:", userData); // Log para teste
-        setSubscription({
-            stripeCustomerId: userData.stripeCustomerId,
-            stripeSubscriptionId: userData.stripeSubscriptionId,
-            stripePriceId: userData.stripePriceId,
-            stripeCurrentPeriodEnd: userData.stripeCurrentPeriodEnd,
-            stripeSubscriptionStatus: userData.stripeSubscriptionStatus,
-        });
-      }
+    const subscriptionRef = ref(realtimeDb, `users/${userCnpj}/subscription`);
+    const unsubscribeDb = onValue(subscriptionRef, (snapshot) => {
+      const subscriptionData = snapshot.val();
+      console.log("Dados da assinatura no Firebase:", subscriptionData);
+      setSubscription(subscriptionData);
       setIsLoading(false);
     }, (error) => {
         console.error("Firebase onValue error:", error);

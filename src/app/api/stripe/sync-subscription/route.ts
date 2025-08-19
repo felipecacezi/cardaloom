@@ -1,6 +1,6 @@
 
 import { NextResponse, NextRequest } from 'next/server';
-import { ref, update, get } from 'firebase/database';
+import { ref, update, get, set } from 'firebase/database';
 import { stripe } from '@/lib/stripe';
 import { realtimeDb } from '@/lib/firebase';
 
@@ -16,8 +16,6 @@ export async function POST(req: NextRequest) {
         const customers = await stripe.customers.list({ email: email, limit: 1 });
 
         if (customers.data.length === 0) {
-            // Se não encontrar o cliente, não há o que sincronizar.
-            // Poderíamos opcionalmente limpar os dados de assinatura no Firebase aqui.
             return NextResponse.json({ message: 'Cliente não encontrado no Stripe.' });
         }
 
@@ -31,9 +29,10 @@ export async function POST(req: NextRequest) {
         });
 
         const userRef = ref(realtimeDb, `users/${cnpj}`);
+        const subscriptionRef = ref(realtimeDb, `users/${cnpj}/subscription`);
 
         if (subscriptions.data.length > 0) {
-            // 3. Se encontrar assinatura ativa, atualiza o Firebase
+            // 3. Se encontrar assinatura ativa, atualiza o Firebase sob a chave 'subscription'
             const subscription = subscriptions.data[0];
             const subscriptionData = {
                 stripeCustomerId: customer.id,
@@ -43,18 +42,14 @@ export async function POST(req: NextRequest) {
                 stripeSubscriptionStatus: subscription.status,
             };
 
-            await update(userRef, subscriptionData);
+            await set(subscriptionRef, subscriptionData);
+             // Opcional: Garante que o customerId também está no nível raiz do usuário
+            await update(userRef, { stripeCustomerId: customer.id });
             
-            return NextResponse.json({ success: true, message: 'Assinatura sincronizada com sucesso.' });
+            return NextResponse.json({ success: true, message: 'Assinatura sincronizada com sucesso.', subscription: subscriptionData });
         } else {
-            // 4. Se não encontrar assinatura ativa, opcionalmente limpa os dados no Firebase
-            // Isso previne que um usuário que cancelou a assinatura continue com status 'active' no nosso DB.
-             const currentData = await get(userRef);
-             if (currentData.exists() && currentData.val().stripeSubscriptionStatus === 'active') {
-                 await update(userRef, {
-                    stripeSubscriptionStatus: 'canceled', // ou o status final da assinatura
-                 });
-             }
+            // 4. Se não encontrar assinatura ativa, limpa os dados da assinatura no Firebase
+             await set(subscriptionRef, null);
             return NextResponse.json({ success: true, message: 'Nenhuma assinatura ativa encontrada.' });
         }
 
