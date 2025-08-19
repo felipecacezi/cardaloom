@@ -21,19 +21,7 @@ export async function POST(req: NextRequest) {
         }
         
         const userData = snapshot.val();
-        let stripeCustomerId = userData.stripeCustomerId;
-
-        // Create a new Stripe customer if one doesn't exist
-        if (!stripeCustomerId) {
-            const customer = await stripe.customers.create({
-                name: userData.restaurantName,
-                metadata: {
-                    cnpj: cnpj,
-                },
-            });
-            stripeCustomerId = customer.id;
-            await update(userRef, { stripeCustomerId: stripeCustomerId });
-        }
+        const stripeCustomerId = userData.stripeCustomerId;
         
         const origin = headers().get('origin') || 'http://localhost:9002';
 
@@ -41,10 +29,14 @@ export async function POST(req: NextRequest) {
             payment_method_types: ['card'],
             line_items: [ { price: priceId, quantity: 1 } ],
             mode: 'subscription',
-            customer: stripeCustomerId,
+            customer: stripeCustomerId, // Passa o ID existente ou undefined
+            customer_update: { // Permite ao Stripe atualizar o cliente se ele já existir
+                name: 'auto',
+                address: 'auto',
+            },
             success_url: `${origin}/dashboard/subscription?success=true&session_id={CHECKOUT_SESSION_ID}`,
             cancel_url: `${origin}/dashboard/subscription?canceled=true`,
-            metadata: { cnpj }
+            metadata: { cnpj } // Essencial para o webhook
         });
 
         if (session.url) {
