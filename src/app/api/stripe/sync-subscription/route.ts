@@ -48,8 +48,8 @@ export async function POST(req: NextRequest) {
             
             return NextResponse.json({ success: true, message: 'Assinatura sincronizada com sucesso.', subscription: subscriptionData });
         } else {
-            // 4. Se não encontrar assinatura ativa, limpa os dados da assinatura no Firebase
-             await set(subscriptionRef, null);
+            // 4. Se não encontrar assinatura ativa, define o status como inativo no Firebase
+             await set(subscriptionRef, { stripeSubscriptionStatus: 'inactive' });
             return NextResponse.json({ success: true, message: 'Nenhuma assinatura ativa encontrada.' });
         }
 
@@ -58,3 +58,4 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Erro interno do servidor', details: error.message }, { status: 500 });
     }
 }
+
