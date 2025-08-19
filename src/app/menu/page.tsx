@@ -20,6 +20,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogClose
 } from "@/components/ui/dialog";
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
@@ -37,6 +38,7 @@ type Restaurant = {
   hours?: Record<string, { isOpen: boolean; openTime: string; closeTime: string }>;
   whatsappOrderNumber?: string;
   delivery?: boolean;
+  bannerImageId?: string;
 };
 
 type Category = { id: string; name: string };
@@ -91,7 +93,7 @@ function RestaurantSearchPage() {
             if (snapshot.exists()) {
                 const usersData = snapshot.val();
                 const allRestaurants: Restaurant[] = Object.keys(usersData).map(id => ({
-                    id: id, // id is the cleaned CNPJ
+                    id: id,
                     restaurantName: usersData[id].restaurantName,
                     originalCnpj: usersData[id].cnpj,
                 }));
@@ -173,6 +175,7 @@ function MenuDisplayPage({ restaurantId }: { restaurantId: string }) {
     const [products, setProducts] = useState<Product[]>([]);
     const [addons, setAddons] = useState<Addon[]>([]);
     const [images, setImages] = useState<Record<string, ImageInfo>>({});
+    const [bannerUrl, setBannerUrl] = useState<string | null>(null);
 
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -225,7 +228,15 @@ function MenuDisplayPage({ restaurantId }: { restaurantId: string }) {
                     hours: userData.hours,
                     whatsappOrderNumber: userData.whatsappOrderNumber,
                     delivery: userData.delivery,
+                    bannerImageId: userData.bannerImageId,
                 });
+
+                const imgData = imgSnap.val() || {};
+                setImages(imgData);
+
+                if (userData.bannerImageId && imgData[userData.bannerImageId]) {
+                    setBannerUrl(imgData[userData.bannerImageId].filePath);
+                }
 
                 const catData = catSnap.val() || {};
                 setCategories(Object.keys(catData).map(key => ({ id: key, ...catData[key] })));
@@ -235,8 +246,6 @@ function MenuDisplayPage({ restaurantId }: { restaurantId: string }) {
 
                 const addonData = addonSnap.val() || {};
                 setAddons(Object.keys(addonData).map(key => ({ id: key, ...addonData[key] })));
-
-                setImages(imgSnap.val() || {});
 
             } catch (err: any) {
                 console.error(err);
@@ -411,7 +420,7 @@ function MenuDisplayPage({ restaurantId }: { restaurantId: string }) {
         <div className="min-h-screen bg-muted/20">
             <header className="relative h-48 md:h-64 w-full">
                 <Image
-                    src="https://placehold.co/1200x400.png"
+                    src={bannerUrl || "https://placehold.co/1200x400.png"}
                     alt="Banner do Restaurante"
                     fill
                     objectFit="cover"
@@ -439,7 +448,10 @@ function MenuDisplayPage({ restaurantId }: { restaurantId: string }) {
                                     <DialogTitle className="text-center">Horários de Funcionamento</DialogTitle>
                                 </DialogHeader>
                                 <div className="space-y-2">
-                                    {restaurant?.hours && Object.entries(restaurant.hours).map(([day, hours]) => (
+                                    {restaurant?.hours && Object.entries(restaurant.hours).sort(([dayA], [dayB]) => {
+                                        const order = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+                                        return order.indexOf(dayA) - order.indexOf(dayB);
+                                    }).map(([day, hours]) => (
                                         <div key={day} className="flex justify-between text-sm">
                                             <span className="font-medium">{weekDayLabels[day]}:</span>
                                             <span>
@@ -615,13 +627,17 @@ function MenuDisplayPage({ restaurantId }: { restaurantId: string }) {
             {selectedProduct && (
             <>
                 <div className="relative h-48 w-full">
-                    <Image 
+                     <Image 
                         src={images[selectedProduct.imageId]?.filePath || 'https://placehold.co/600x400.png'} 
                         alt={selectedProduct.name} 
                         fill 
-                        objectFit="cover" 
-                        className="rounded-t-lg" 
+                        objectFit="cover"
+                        className="rounded-t-lg"
                         data-ai-hint="pizza food"/>
+                    <DialogClose className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground bg-white/50 hover:bg-white/80 p-1">
+                        <Plus className="h-4 w-4 rotate-45" />
+                        <span className="sr-only">Close</span>
+                    </DialogClose>
                 </div>
                 <div className="p-6">
                     <DialogHeader className="text-left">
@@ -685,3 +701,5 @@ export default function MenuPage() {
 
     return <RestaurantSearchPage />;
 }
+
+    

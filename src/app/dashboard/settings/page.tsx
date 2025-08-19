@@ -7,6 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { ref, get, update } from 'firebase/database';
+import Image from 'next/image';
 
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Button } from "@/components/ui/button";
@@ -18,7 +19,7 @@ import { Separator } from '@/components/ui/separator';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
 import { auth, realtimeDb } from '@/lib/firebase';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Image as ImageIcon } from 'lucide-react';
 
 const companyFormSchema = z.object({
   restaurantName: z.string().min(2, { message: 'O nome do restaurante é obrigatório.' }),
@@ -69,15 +70,19 @@ type UserData = z.infer<typeof companyFormSchema> &
                 z.infer<typeof userFormSchema> & 
                 { address: z.infer<typeof addressFormSchema> } &
                 z.infer<typeof operatingHoursSchema> &
-                z.infer<typeof ordersFormSchema>;
+                z.infer<typeof ordersFormSchema> &
+                { bannerImageId?: string };
 
 
 export default function SettingsPage() {
     const { toast } = useToast();
     const [isLoading, setIsLoading] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isUploading, setIsUploading] = useState(false);
     const [currentUser, setCurrentUser] = useState<User | null>(null);
     const [userCnpj, setUserCnpj] = useState<string | null>(null);
+    const [bannerPreviewUrl, setBannerPreviewUrl] = useState<string | null>(null);
+
 
     const formOptions = {
         shouldUnregister: false // Keep form values even if fields are conditionally rendered
@@ -123,7 +128,6 @@ export default function SettingsPage() {
                         const userData = userEntry[1] as UserData;
                         setUserCnpj(cnpj);
 
-                        // Populate forms with existing data
                         companyForm.reset({ restaurantName: userData.restaurantName || '', cnpj: userData.cnpj || '' });
                         userForm.reset({ ownerName: userData.ownerName || '', email: currentUser.email || '' });
                         addressForm.reset({
@@ -153,6 +157,15 @@ export default function SettingsPage() {
                             receiveOrdersByWhatsapp: userData.receiveOrdersByWhatsapp || false,
                             whatsappOrderNumber: userData.whatsappOrderNumber || ''
                         });
+
+                        if (userData.bannerImageId) {
+                            const imageRef = ref(realtimeDb, `images/${cnpj}/${userData.bannerImageId}`);
+                            get(imageRef).then((imgSnapshot) => {
+                                if (imgSnapshot.exists()) {
+                                    setBannerPreviewUrl(imgSnapshot.val().filePath);
+                                }
+                            });
+                        }
                         
                     } else {
                         toast({ title: "Erro", description: "Não foi possível encontrar os dados do seu restaurante.", variant: "destructive" });
@@ -195,6 +208,46 @@ export default function SettingsPage() {
         }
     }
 
+    const handleBannerUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        if (!userCnpj) {
+            toast({ title: "Erro", description: "Usuário não identificado para fazer upload.", variant: "destructive" });
+            return;
+        }
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        setIsUploading(true);
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('cnpj', userCnpj);
+
+        try {
+            const response = await fetch('/api/upload', {
+                method: 'POST',
+                body: formData,
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Falha no upload da imagem.');
+            }
+
+            const data = await response.json();
+            await handleUpdate({ bannerImageId: data.imageId }, 'Imagem do banner atualizada com sucesso.');
+            setBannerPreviewUrl(data.filePath);
+
+        } catch (error: any) {
+            toast({
+                variant: "destructive",
+                title: "Erro no Upload!",
+                description: error.message || "Não foi possível enviar a imagem. Tente novamente.",
+            });
+        } finally {
+            setIsUploading(false);
+        }
+    };
+
+
     if (isLoading) {
       return (
         <div className="flex h-screen w-full items-center justify-center">
@@ -213,6 +266,40 @@ export default function SettingsPage() {
         </div>
       </header>
       <main className="flex-1 p-6 space-y-6">
+        <Card>
+            <CardHeader>
+                <CardTitle>Banner do Cardápio</CardTitle>
+                <CardDescription>Faça o upload de uma imagem para ser exibida no topo do seu cardápio.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                 <div className="flex flex-col items-start gap-4">
+                    <div className="w-full h-48 rounded-md border border-dashed flex items-center justify-center bg-muted/50 overflow-hidden">
+                        {isUploading ? (
+                            <Loader2 className="h-8 w-8 animate-spin" />
+                        ) : bannerPreviewUrl ? (
+                            <Image src={bannerPreviewUrl} alt="Pré-visualização do Banner" width={600} height={192} className="w-full h-full object-cover" />
+                        ) : (
+                            <div className="text-center text-muted-foreground">
+                                <ImageIcon className="h-10 w-10 mx-auto mb-2" />
+                                <p>Sua imagem do banner aparecerá aqui.</p>
+                                <p className="text-xs">Recomendação: 1200x400 pixels.</p>
+                            </div>
+                        )}
+                    </div>
+                    <Input 
+                        id="banner-upload"
+                        type="file" 
+                        accept="image/*"
+                        onChange={handleBannerUpload}
+                        className="flex-1"
+                        disabled={isUploading || isSubmitting}
+                    />
+                </div>
+            </CardContent>
+        </Card>
+
+        <Separator />
+
         <Card>
             <CardHeader>
                 <CardTitle>Dados da Empresa</CardTitle>
