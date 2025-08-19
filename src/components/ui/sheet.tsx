@@ -126,9 +126,6 @@ const SheetDescription = React.forwardRef<
 ))
 SheetDescription.displayName = SheetPrimitive.Description.displayName
 
-const VisuallyHidden = SheetPrimitive.VisuallyHidden;
-
-
 export {
   Sheet,
   SheetPortal,
@@ -140,5 +137,4 @@ export {
   SheetFooter,
   SheetTitle,
   SheetDescription,
-  VisuallyHidden
 }
