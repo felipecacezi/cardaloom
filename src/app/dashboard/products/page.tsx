@@ -12,7 +12,7 @@ import { onAuthStateChanged, User } from 'firebase/auth';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { PlusCircle, MoreVertical, Edit, Trash2, Search, Loader2, X, Eye, EyeOff, Sparkles } from 'lucide-react';
+import { PlusCircle, MoreVertical, Edit, Trash2, Search, Loader2, X, Eye, EyeOff, Sparkles, Image as ImageIcon } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -72,13 +72,19 @@ type Category = {
   name: string;
 };
 
+type ImageInfo = {
+    id: string;
+    filePath: string;
+    fileName: string;
+};
+
 type Product = {
   id: string;
   name: string;
   price: number;
   description: string;
   category: string;
-  image: string;
+  imageId: string;
   addons?: Record<string, boolean>; // Store addon IDs as keys
   isVisible: boolean;
 };
@@ -96,7 +102,7 @@ const formSchema = z.object({
   }),
   description: z.string().min(5, { message: "A descrição é obrigatória." }),
   category: z.string({ required_error: "A categoria é obrigatória."}).min(1, "A categoria é obrigatória."),
-  image: z.any(),
+  imageId: z.string().optional(),
   addonIds: z.array(z.string()).optional(),
   isVisible: z.boolean().default(true),
 });
@@ -106,15 +112,16 @@ export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [addons, setAddons] = useState<Addon[]>([]);
+  const [images, setImages] = useState<Record<string, ImageInfo>>({});
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [deletingProduct, setDeletingProduct] = useState<Product | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
   const [isGeneratingDescription, setIsGeneratingDescription] = useState(false);
+  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
   
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [userCnpj, setUserCnpj] = useState<string | null>(null);
@@ -138,7 +145,7 @@ export default function ProductsPage() {
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
-    defaultValues: { name: '', price: '', description: '', category: '', addonIds: [], isVisible: true },
+    defaultValues: { name: '', price: '', description: '', category: '', imageId: '', addonIds: [], isVisible: true },
   });
 
    useEffect(() => {
@@ -161,7 +168,7 @@ export default function ProductsPage() {
         if (snapshot.exists()) {
           const usersData = snapshot.val();
           const userEntry = Object.entries(usersData).find(
-            ([cnpj, data]) => (data as any).authUid === currentUser.uid
+            ([, data]) => (data as any).authUid === currentUser.uid
           );
           if (userEntry) {
             setUserCnpj(userEntry[0]);
@@ -186,6 +193,7 @@ export default function ProductsPage() {
       const productsRef = ref(realtimeDb, `products/${userCnpj}`);
       const categoriesRef = ref(realtimeDb, `categories/${userCnpj}`);
       const addonsRef = ref(realtimeDb, `add-ons/${userCnpj}`);
+      const imagesRef = ref(realtimeDb, `images/${userCnpj}`);
 
       const unsubscribeProducts = onValue(productsRef, (snapshot) => {
         const data = snapshot.val();
@@ -210,29 +218,43 @@ export default function ProductsPage() {
         setAddons(loadedAddons);
       });
 
+      const unsubscribeImages = onValue(imagesRef, (snapshot) => {
+        const data = snapshot.val();
+        setImages(data || {});
+      });
+
       return () => {
         unsubscribeProducts();
         unsubscribeCategories();
         unsubscribeAddons();
+        unsubscribeImages();
       };
     }
   }, [userCnpj, toast]);
 
   useEffect(() => {
-    if (editingProduct) {
-      form.reset({
-        name: editingProduct.name,
-        price: formatCurrency(editingProduct.price),
-        description: editingProduct.description,
-        category: editingProduct.category,
-        image: editingProduct.image,
-        addonIds: editingProduct.addons ? Object.keys(editingProduct.addons) : [],
-        isVisible: editingProduct.isVisible,
-      });
+    form.reset(getDefaultFormValues());
+    if (editingProduct?.imageId && images[editingProduct.imageId]) {
+      setImagePreviewUrl(images[editingProduct.imageId].filePath);
     } else {
-        form.reset({ name: '', price: '', description: '', category: '', image: null, addonIds: [], isVisible: true });
+      setImagePreviewUrl(null);
     }
-  }, [editingProduct, form]);
+  }, [editingProduct, form, images]);
+  
+  const getDefaultFormValues = () => {
+    if(editingProduct) {
+        return {
+             name: editingProduct.name,
+            price: formatCurrency(editingProduct.price),
+            description: editingProduct.description,
+            category: editingProduct.category,
+            imageId: editingProduct.imageId,
+            addonIds: editingProduct.addons ? Object.keys(editingProduct.addons) : [],
+            isVisible: editingProduct.isVisible,
+        }
+    }
+    return { name: '', price: '', description: '', category: '', imageId: '', addonIds: [], isVisible: true };
+  }
 
   const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setSearchQuery(event.target.value);
@@ -265,7 +287,7 @@ export default function ProductsPage() {
       try {
         const result = await suggestProductDescription({
             productName: name,
-            productCategory: categories.find(c => c.name === category)?.name || category,
+            productCategory: categories.find(c => c.id === category)?.name || category,
             ingredients: '', // Ingredients are not in the form, can be added if needed
         });
         form.setValue('description', result.description);
@@ -284,6 +306,46 @@ export default function ProductsPage() {
       }
   }
 
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (!userCnpj) {
+        toast({ title: "Erro", description: "Usuário não identificado para fazer upload.", variant: "destructive" });
+        return;
+    }
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('cnpj', userCnpj);
+
+    try {
+        const response = await fetch('/api/upload', {
+            method: 'POST',
+            body: formData,
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Falha no upload da imagem.');
+        }
+
+        const data = await response.json();
+        form.setValue('imageId', data.imageId);
+        setImagePreviewUrl(data.filePath);
+        toast({ title: "Sucesso!", description: "Imagem enviada." });
+
+    } catch (error: any) {
+        toast({
+            variant: "destructive",
+            title: "Erro no Upload!",
+            description: error.message || "Não foi possível enviar a imagem. Tente novamente.",
+        });
+    } finally {
+        setIsUploading(false);
+    }
+  };
+
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     if (!userCnpj) {
@@ -291,46 +353,12 @@ export default function ProductsPage() {
         return;
     }
 
-    setIsUploading(true);
-    let imageUrl = editingProduct?.image || 'https://placehold.co/100x100.png';
-
-    if (values.image && typeof values.image !== 'string' && values.image[0]) {
-        const file = values.image[0];
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('cnpj', userCnpj); // <-- Send CNPJ to API
-
-        try {
-            const response = await fetch('/api/upload', {
-                method: 'POST',
-                body: formData,
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || 'Falha no upload da imagem.');
-            }
-
-            const data = await response.json();
-            imageUrl = data.filePath;
-
-        } catch (error: any) {
-            toast({
-                variant: "destructive",
-                title: "Erro no Upload!",
-                description: error.message || "Não foi possível enviar a imagem. Tente novamente.",
-            });
-            setIsUploading(false);
-            return;
-        }
-    }
-    
     const productData = {
         name: values.name,
         price: unformatCurrency(values.price),
         description: values.description,
         category: values.category,
-        image: imageUrl,
+        imageId: values.imageId || '',
         addons: values.addonIds?.reduce((acc, id) => ({ ...acc, [id]: true }), {}),
         isVisible: values.isVisible,
     };
@@ -343,8 +371,6 @@ export default function ProductsPage() {
                 title: "Produto Atualizado!",
                 description: `O produto "${values.name}" foi atualizado com sucesso.`,
             });
-            setIsEditModalOpen(false);
-            setEditingProduct(null);
         } else {
             const productsRef = ref(realtimeDb, `products/${userCnpj}`);
             const newProductRef = push(productsRef);
@@ -353,25 +379,28 @@ export default function ProductsPage() {
                 title: "Produto Criado!",
                 description: `O produto "${values.name}" foi adicionado com sucesso.`,
             });
-            setIsCreateModalOpen(false);
         }
-        form.reset({ name: '', price: '', description: '', category: '', image: null, addonIds: [], isVisible: true });
+        closeModal();
     } catch (error) {
         toast({ title: "Erro ao salvar", description: "Não foi possível salvar o produto.", variant: "destructive" });
-    } finally {
-        setIsUploading(false);
     }
   }
 
   const handleEditClick = (product: Product) => {
     setEditingProduct(product);
-    setIsEditModalOpen(true);
+    setIsModalOpen(true);
   };
   
   const handleCreateClick = () => {
     setEditingProduct(null);
-    form.reset({ name: '', price: '', description: '', category: '', image: null, addonIds: [], isVisible: true });
-    setIsCreateModalOpen(true);
+    setIsModalOpen(true);
+  }
+
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setEditingProduct(null);
+    setImagePreviewUrl(null);
+    form.reset(getDefaultFormValues());
   }
 
   const confirmDelete = async () => {
@@ -399,14 +428,6 @@ export default function ProductsPage() {
 
 
   const renderFormFields = () => {
-    const imageField = form.watch('image');
-    let previewUrl = '';
-    if (typeof imageField === 'string') {
-        previewUrl = imageField;
-    } else if (imageField && imageField[0]) {
-        previewUrl = URL.createObjectURL(imageField[0]);
-    }
-    
     const selectedAddonIds = form.watch('addonIds') || [];
     const selectedAddons = addons.filter(addon => selectedAddonIds.includes(addon.id));
 
@@ -455,7 +476,7 @@ export default function ProductsPage() {
             render={({ field }) => (
                 <FormItem>
                     <FormLabel>Categoria</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
                             <SelectTrigger disabled={categories.length === 0}>
                                 <SelectValue placeholder={categories.length > 0 ? "Selecione uma categoria" : "Nenhuma categoria cadastrada"} />
@@ -463,7 +484,7 @@ export default function ProductsPage() {
                         </FormControl>
                         <SelectContent>
                             {categories.map(cat => (
-                                <SelectItem key={cat.id} value={cat.name}>{cat.name}</SelectItem>
+                                <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
                             ))}
                         </SelectContent>
                     </Select>
@@ -496,27 +517,34 @@ export default function ProductsPage() {
                 </FormItem>
             )}
         />
-        <FormField
-            control={form.control}
-            name="image"
-            render={({ field: { onChange, value, ...rest } }) => (
-                <FormItem>
-                    <FormLabel>Imagem do Produto</FormLabel>
-                    <div className="flex items-center gap-4">
-                      {previewUrl && <Image src={previewUrl} alt="Pré-visualização" width={64} height={64} className="rounded-md object-cover" />}
-                       <FormControl>
-                            <Input 
-                                type="file" 
-                                accept="image/*"
-                                onChange={(e) => onChange(e.target.files)}
-                                {...rest}
-                            />
-                        </FormControl>
-                    </div>
-                    <FormMessage />
-                </FormItem>
-            )}
-        />
+        <FormItem>
+            <FormLabel>Imagem do Produto</FormLabel>
+            <div className="flex items-center gap-4">
+                <div className="w-16 h-16 rounded-md border border-dashed flex items-center justify-center bg-muted/50">
+                    {isUploading ? (
+                        <Loader2 className="h-6 w-6 animate-spin" />
+                    ) : imagePreviewUrl ? (
+                        <Image src={imagePreviewUrl} alt="Pré-visualização" width={64} height={64} className="rounded-md object-cover" />
+                    ) : (
+                        <ImageIcon className="h-6 w-6 text-muted-foreground" />
+                    )}
+                </div>
+                <FormControl>
+                    <Input 
+                        type="file" 
+                        accept="image/*"
+                        onChange={handleImageUpload}
+                        className="flex-1"
+                    />
+                </FormControl>
+            </div>
+             <FormField
+                control={form.control}
+                name="imageId"
+                render={({ field }) => <input type="hidden" {...field} />}
+             />
+            <FormMessage />
+        </FormItem>
          <FormField
             control={form.control}
             name="isVisible"
@@ -654,10 +682,16 @@ export default function ProductsPage() {
                             )}
                         </TableCell>
                         <TableCell>
-                            <Image src={product.image} alt={product.name} width={64} height={64} className="rounded-md object-cover" />
+                            <Image 
+                                src={images[product.imageId]?.filePath || 'https://placehold.co/64x64.png'} 
+                                alt={product.name} 
+                                width={64} 
+                                height={64} 
+                                className="rounded-md object-cover" 
+                             />
                         </TableCell>
                         <TableCell className="font-medium">{product.name}</TableCell>
-                        <TableCell><Badge variant="outline">{product.category}</Badge></TableCell>
+                        <TableCell><Badge variant="outline">{categories.find(c => c.id === product.category)?.name || product.category}</Badge></TableCell>
                         <TableCell>{formatCurrency(product.price)}</TableCell>
                         <TableCell>
                             <div className="flex flex-wrap gap-1">
@@ -738,12 +772,7 @@ export default function ProductsPage() {
         </AlertDialogContent>
         </AlertDialog>
       </main>
-      <Dialog open={isCreateModalOpen || isEditModalOpen} onOpenChange={(isOpen) => {
-        if (!isOpen) {
-            setIsCreateModalOpen(false);
-            setIsEditModalOpen(false);
-        }
-      }}>
+      <Dialog open={isModalOpen} onOpenChange={(isOpen) => { if (!isOpen) closeModal(); }}>
         <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
                 <DialogTitle>{editingProduct ? 'Editar Produto' : 'Criar Novo Produto'}</DialogTitle>
@@ -756,7 +785,7 @@ export default function ProductsPage() {
                     {renderFormFields()}
                      <DialogFooter>
                         <DialogClose asChild>
-                            <Button type="button" variant="outline" onClick={() => { setIsCreateModalOpen(false); setIsEditModalOpen(false); }}>Cancelar</Button>
+                            <Button type="button" variant="outline" onClick={closeModal}>Cancelar</Button>
                         </DialogClose>
                         <Button type="submit" disabled={isUploading}>
                             {isUploading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

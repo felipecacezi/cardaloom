@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { promises as fs } from 'fs';
 import path from 'path';
 import formidable, { File } from 'formidable';
+import { ref, push, set } from 'firebase/database';
+import { realtimeDb } from '@/lib/firebase';
 
 export const config = {
   api: {
@@ -17,7 +19,6 @@ async function ensureUploadDirExists(cnpj: string) {
   try {
     await fs.access(userUploadDir);
   } catch (error) {
-    // If directory doesn't exist, create it
     await fs.mkdir(userUploadDir, { recursive: true });
   }
   return userUploadDir;
@@ -27,7 +28,6 @@ export async function POST(req: NextRequest) {
   try {
     const form = formidable({});
     
-    // Use a Promise to handle the asynchronous parsing
     const [fields, files] = await new Promise<[formidable.Fields<string>, formidable.Files<string>]>((resolve, reject) => {
         form.parse(req as any, (err, fields, files) => {
             if (err) {
@@ -51,20 +51,33 @@ export async function POST(req: NextRequest) {
     
     const file = fileArray[0] as File;
 
-    // 1. Ensure user-specific upload directory exists
     const userUploadDir = await ensureUploadDirExists(cnpj);
 
-    // 2. Define the new path for the file
     const newFilename = `${Date.now()}-${file.originalFilename}`;
     const newPath = path.join(userUploadDir, newFilename);
 
-    // 3. Move the file from its temporary location to the new path
     await fs.rename(file.filepath, newPath);
 
-    // 4. Construct the public URL for the file
     const filePath = `/uploads/${cnpj}/${newFilename}`;
 
-    return NextResponse.json({ filePath });
+    // Save image metadata to Firebase
+    const imagesRef = ref(realtimeDb, `images/${cnpj}`);
+    const newImageRef = push(imagesRef);
+    const imageId = newImageRef.key;
+
+    if (!imageId) {
+        throw new Error("Failed to generate image ID.");
+    }
+    
+    await set(newImageRef, {
+      filePath: filePath,
+      fileName: file.originalFilename,
+      fileType: file.mimetype,
+      fileSize: file.size,
+      createdAt: new Date().toISOString()
+    });
+
+    return NextResponse.json({ imageId: imageId, filePath: filePath });
   } catch (error) {
     console.error('Erro no upload:', error);
     return NextResponse.json({ error: 'Erro ao fazer upload do arquivo.' }, { status: 500 });
