@@ -107,13 +107,17 @@ const addonsData: Addon[] = [
     { id: 8, name: 'Guaraná Antarctica 2L', price: 10.00 },
 ];
 
+const unformatCurrency = (value: string) => {
+    if (typeof value !== 'string') return 0;
+    const onlyNumbers = value.replace(/[^\d]/g, '');
+    return parseFloat(onlyNumbers) / 100;
+}
 
 const formSchema = z.object({
   name: z.string().min(2, { message: 'O nome do produto é obrigatório.' }),
-  price: z.preprocess(
-    (a) => parseFloat(z.string().parse(a)),
-    z.number().positive({ message: 'O preço deve ser um número positivo.' })
-  ),
+  price: z.string().refine(value => !isNaN(unformatCurrency(value)) && unformatCurrency(value) > 0, {
+      message: 'O preço deve ser um número positivo.'
+  }),
   description: z.string().min(5, { message: "A descrição é obrigatória." }),
   category: z.string({ required_error: "A categoria é obrigatória."}),
   image: z.any(),
@@ -134,17 +138,30 @@ export default function ProductsPage() {
 
   const itemsPerPage = 5;
   const { toast } = useToast();
+  
+  const formatCurrency = (value: number) => {
+    if (typeof value !== 'number') return '';
+    return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  };
+  
+  const formatCurrencyInput = (value: string) => {
+    if (typeof value !== 'string') return '';
+    const onlyNumbers = value.replace(/[^\d]/g, '');
+    if (!onlyNumbers) return '';
+    const numberValue = parseInt(onlyNumbers, 10) / 100;
+    return formatCurrency(numberValue);
+  };
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
-    defaultValues: { name: '', price: 0, description: '', category: '', addonIds: [], isVisible: true },
+    defaultValues: { name: '', price: '', description: '', category: '', addonIds: [], isVisible: true },
   });
 
   useEffect(() => {
     if (editingProduct) {
       form.reset({
         name: editingProduct.name,
-        price: editingProduct.price,
+        price: formatCurrency(editingProduct.price),
         description: editingProduct.description,
         category: editingProduct.category,
         image: editingProduct.image,
@@ -152,7 +169,7 @@ export default function ProductsPage() {
         isVisible: editingProduct.isVisible,
       });
     } else {
-        form.reset({ name: '', price: 0, description: '', category: '', image: null, addonIds: [], isVisible: true });
+        form.reset({ name: '', price: '', description: '', category: '', image: null, addonIds: [], isVisible: true });
     }
   }, [editingProduct, form]);
 
@@ -207,11 +224,12 @@ export default function ProductsPage() {
     }
     
     const selectedAddons = addonsData.filter(addon => values.addonIds?.includes(addon.id));
+    const finalPrice = unformatCurrency(values.price);
 
 
      if (editingProduct) {
         setProducts(prev => prev.map(p =>
-            p.id === editingProduct.id ? { ...editingProduct, ...values, image: imageUrl, addons: selectedAddons, isVisible: values.isVisible } : p
+            p.id === editingProduct.id ? { ...editingProduct, ...values, price: finalPrice, image: imageUrl, addons: selectedAddons, isVisible: values.isVisible } : p
         ));
         toast({
             title: "Produto Atualizado!",
@@ -223,7 +241,7 @@ export default function ProductsPage() {
         const newProduct: Product = {
             id: Date.now(),
             name: values.name,
-            price: values.price,
+            price: finalPrice,
             description: values.description,
             category: values.category,
             image: imageUrl,
@@ -237,7 +255,7 @@ export default function ProductsPage() {
         });
         setIsCreateModalOpen(false);
      }
-     form.reset({ name: '', price: 0, description: '', category: '', image: null, addonIds: [], isVisible: true });
+     form.reset({ name: '', price: '', description: '', category: '', image: null, addonIds: [], isVisible: true });
      setIsUploading(false);
   }
 
@@ -248,7 +266,7 @@ export default function ProductsPage() {
   
   const handleCreateClick = () => {
     setEditingProduct(null);
-    form.reset({ name: '', price: 0, description: '', category: '', image: null, addonIds: [], isVisible: true });
+    form.reset({ name: '', price: '', description: '', category: '', image: null, addonIds: [], isVisible: true });
     setIsCreateModalOpen(true);
   }
 
@@ -262,10 +280,6 @@ export default function ProductsPage() {
     setDeletingProduct(null);
   }
 
-  const formatCurrency = (value: number) => {
-    return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-  };
-  
   const renderFormFields = () => {
     const imageField = form.watch('image');
     let previewUrl = '';
@@ -304,9 +318,13 @@ export default function ProductsPage() {
                 name="price"
                 render={({ field }) => (
                     <FormItem>
-                        <FormLabel>Preço (R$)</FormLabel>
+                        <FormLabel>Preço</FormLabel>
                         <FormControl>
-                            <Input type="number" step="0.01" placeholder="Ex: 45.50" {...field} onChange={e => field.onChange(e.target.value)} />
+                            <Input 
+                                placeholder="R$ 0,00" 
+                                {...field} 
+                                onChange={(e) => field.onChange(formatCurrencyInput(e.target.value))}
+                            />
                         </FormControl>
                         <FormMessage />
                     </FormItem>
