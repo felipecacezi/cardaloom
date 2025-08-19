@@ -1,10 +1,8 @@
 
 import { NextResponse } from 'next/server';
-// Importe as funções do Firebase Authentication e Realtime Database que você precisa
-// Certifique-se de que 'auth' e 'db' estão sendo exportados de src/lib/firebase.ts
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { ref, set, get } from 'firebase/database';
-import { db, auth } from '@/lib/firebase'; // Assumindo que você exporta auth e db aqui
+import { auth, realtimeDb } from '../../../lib/firebase';
 
 export async function POST(req: Request) {
   try {
@@ -19,7 +17,7 @@ export async function POST(req: Request) {
     const cleanedCnpj = cnpj.replace(/[.\-/]/g, '');
 
     // 2. Verificar se o CNPJ limpo já existe no banco de dados
-    const cnpjRef = ref(db, `users/${cleanedCnpj}`);
+    const cnpjRef = ref(realtimeDb, `users/${cleanedCnpj}`);
     const snapshot = await get(cnpjRef);
     if (snapshot.exists()) {
       return NextResponse.json({ error: 'CNPJ já cadastrado.' }, { status: 400 });
