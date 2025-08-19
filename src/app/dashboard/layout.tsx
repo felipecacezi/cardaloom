@@ -18,6 +18,7 @@ import {
   SidebarMenuButton,
   SidebarInset,
   SidebarTrigger,
+  SidebarFooter,
   SheetTitle,
 } from '@/components/ui/sidebar';
 import { Logo } from '@/components/logo';
