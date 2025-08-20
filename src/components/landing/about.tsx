@@ -20,7 +20,7 @@ export default function About() {
         </div>
         <div className="relative h-80">
           <Image
-            src="https://placehold.co/600x400.png"
+            src="/img/undraw_chef_yoa7.svg"
             alt="Dois desenvolvedores colaborando em um projeto"
             fill
             className="object-contain"

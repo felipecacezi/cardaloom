@@ -17,17 +17,19 @@ export default function Hero() {
           <Link href="/signup">
             <Button size="lg">Criar meu cardápio grátis</Button>
           </Link>
-          <Button size="lg" variant="outline">
-            ver cardapios
-          </Button>
+          <Link href="/menu">
+            <Button size="lg" variant="outline">
+              Ver Cardápios
+            </Button>
+          </Link>
         </div>
       </div>
       <div className="relative h-[300px] lg:h-[500px]">
         <Image
-          src="/img/undraw_mobile-site_qjby.svg"
+          src="https://placehold.co/600x400.png"
           alt="Exemplo de cardápio digital em um smartphone"
           fill
-          className="object-contain rounded-xl"
+          className="object-contain"
           data-ai-hint="digital menu restaurant"
         />
       </div>
