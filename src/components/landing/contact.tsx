@@ -91,10 +91,10 @@ export default function Contact() {
         </div>
         <div className="order-1 lg:order-2 relative h-full min-h-[300px] lg:min-h-0">
           <Image
-            src="/img/mock-email2.png"
+            src="/img/undraw_mail-sent_ujev.svg"
             alt="Contato"
             fill
-            className="object-cover rounded-xl shadow-lg"
+            className="object-contain rounded-xl h-auto w-auto"
             data-ai-hint="contact support"
           />
         </div>

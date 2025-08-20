@@ -24,10 +24,10 @@ export default function Hero() {
       </div>
       <div className="relative h-[300px] lg:h-[500px]">
         <Image
-          src="https://placehold.co/600x600.png"
+          src="https://placehold.co/600x400.png"
           alt="Exemplo de cardápio digital em um smartphone"
           fill
-          className="object-contain rounded-xl shadow-lg"
+          className="object-contain rounded-xl"
           data-ai-hint="digital menu restaurant"
         />
       </div>
