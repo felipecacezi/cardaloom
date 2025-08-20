@@ -24,7 +24,7 @@ export default function Hero() {
       </div>
       <div className="relative h-[300px] lg:h-[500px]">
         <Image
-          src="/img/mock-cardapio2.png"
+          src="/img/mock-cardapio-harmonioso.png"
           alt="Exemplo de cardápio digital em um smartphone"
           fill
           className="object-contain rounded-xl shadow-lg"

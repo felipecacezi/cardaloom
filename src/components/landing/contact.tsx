@@ -91,7 +91,7 @@ export default function Contact() {
         </div>
         <div className="order-1 lg:order-2 relative h-full min-h-[300px] lg:min-h-0">
           <Image
-            src="https://placehold.co/800x800.png"
+            src="/img/mock-email2.png"
             alt="Contato"
             fill
             className="object-cover rounded-xl shadow-lg"
