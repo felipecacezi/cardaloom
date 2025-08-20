@@ -22,12 +22,12 @@ export default function Hero() {
           </Button>
         </div>
       </div>
-      <div className="relative h-full min-h-[300px] lg:min-h-0">
+      <div className="relative h-[300px] lg:h-[500px]">
         <Image
-          src="https://placehold.co/1200x675.png"
+          src="/img/mock-cardapio2.png"
           alt="Exemplo de cardápio digital em um smartphone"
           fill
-          className="object-cover rounded-xl shadow-lg"
+          className="object-contain rounded-xl shadow-lg"
           data-ai-hint="digital menu restaurant"
         />
       </div>
