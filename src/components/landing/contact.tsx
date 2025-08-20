@@ -37,7 +37,7 @@ export default function Contact() {
   }
 
   return (
-    <section className="py-20 sm:py-32">
+    <section id="contact" className="py-20 sm:py-32">
       <div className="container grid lg:grid-cols-2 gap-12 items-center">
         <div className="order-2 lg:order-1">
           <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Fale Conosco</h2>
@@ -89,7 +89,7 @@ export default function Contact() {
             </form>
           </Form>
         </div>
-        <div className="order-1 lg:order-2 relative h-80 min-h-[300px]">
+        <div className="order-1 lg:order-2 relative h-64 min-h-[300px]">
           <Image
             src="/img/undraw_mail-sent_ujev.svg"
             alt="Contato"

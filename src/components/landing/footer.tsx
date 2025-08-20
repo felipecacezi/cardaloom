@@ -26,7 +26,7 @@ export default function Footer() {
               <ul className="space-y-2 text-sm text-muted-foreground">
                 <li><a href="#" className="hover:text-primary">Sobre nós</a></li>
                 <li><a href="#" className="hover:text-primary">Carreiras</a></li>
-                <li><a href="#" className="hover:text-primary">Contato</a></li>
+                <li><a href="#contact" className="hover:text-primary">Contato</a></li>
               </ul>
             </div>
             <div>
