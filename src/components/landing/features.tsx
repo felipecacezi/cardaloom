@@ -1,5 +1,5 @@
 import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Edit3, Share2, Rocket } from 'lucide-react';
+import { Edit3, Share2, Rocket, MessageSquareText } from 'lucide-react';
 
 const features = [
   {
@@ -17,6 +17,11 @@ const features = [
     title: 'Visibilidade Global',
     description: 'Seu cardápio acessível de qualquer lugar do mundo, a qualquer hora.',
   },
+  {
+    icon: <MessageSquareText className="w-8 h-8 text-primary" />,
+    title: 'Pedidos via WhatsApp',
+    description: 'De forma simples, descomplicada e sem as taxas que os concorrentes cobram em cima das vendas.',
+  },
 ];
 
 
@@ -28,7 +33,7 @@ export default function Features() {
           <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Tudo que você precisa para decolar</h2>
           <p className="mt-4 text-lg text-muted-foreground">Funcionalidades pensadas para simplificar sua vida e impressionar seus clientes.</p>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 justify-center">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 justify-center">
           {features.map((feature) => (
             <Card key={feature.title} className="flex flex-col items-center text-center p-6 bg-card hover:shadow-lg transition-shadow duration-300 max-w-sm mx-auto">
               <div className="p-4 bg-primary/10 rounded-full">
