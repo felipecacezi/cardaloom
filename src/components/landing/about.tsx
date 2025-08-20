@@ -4,7 +4,7 @@ export default function About() {
   return (
     <section id="about" className="py-20 sm:py-32 bg-muted/50">
       <div className="container grid lg:grid-cols-2 gap-12 items-center">
-        <div>
+        <div className="p-4">
           <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Nossa História</h2>
           <div className="mt-6 space-y-4 text-muted-foreground">
             <p>
