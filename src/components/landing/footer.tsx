@@ -151,11 +151,11 @@ export default function Footer() {
             <p className="text-sm text-muted-foreground">
               © {new Date().getFullYear()} Cardaloom. Todos os direitos reservados.
             </p>
-            <div className="flex items-center gap-4 mt-4 sm:mt-0">
+            {/* <div className="flex items-center gap-4 mt-4 sm:mt-0">
               <a href="#" aria-label="Facebook" className="text-muted-foreground hover:text-primary"><Facebook size={20} /></a>
               <a href="#" aria-label="Twitter" className="text-muted-foreground hover:text-primary"><Twitter size={20} /></a>
               <a href="#" aria-label="Instagram" className="text-muted-foreground hover:text-primary"><Instagram size={20} /></a>
-            </div>
+            </div> */}
           </div>
         </div>
       </footer>
