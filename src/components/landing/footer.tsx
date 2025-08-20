@@ -1,55 +1,120 @@
+
+'use client';
+
+import * as React from 'react';
 import { Logo } from '@/components/logo';
 import { Facebook, Twitter, Instagram } from 'lucide-react';
 import Link from 'next/link';
+import { Button } from '../ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+  DialogClose,
+} from "@/components/ui/dialog"
+import { ScrollArea } from '../ui/scroll-area';
 
 export default function Footer() {
   return (
-    <footer className="border-t bg-muted/50">
-      <div className="py-12 px-4 sm:px-6 lg:px-8">
-        <div className="grid gap-8 md:grid-cols-3">
-          <div className="space-y-4">
-            <Logo />
+    <Dialog>
+      <footer className="border-t bg-muted/50">
+        <div className="py-12 px-4 sm:px-6 lg:px-8">
+          <div className="grid gap-8 md:grid-cols-3">
+            <div className="space-y-4">
+              <Logo />
+              <p className="text-sm text-muted-foreground">
+                Transformando a maneira como restaurantes apresentam seus pratos.
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-8 md:col-span-2 md:grid-cols-3">
+              <div>
+                <h4 className="font-semibold mb-3">Produto</h4>
+                <ul className="space-y-2 text-sm text-muted-foreground">
+                  <li><Link href="#features" className="hover:text-primary">Funcionalidades</Link></li>
+                  <li><Link href="#pricing" className="hover:text-primary">Preços</Link></li>
+                  <li><a href="#" className="hover:text-primary">Exemplos</a></li>
+                </ul>
+              </div>
+              <div>
+                <h4 className="font-semibold mb-3">Empresa</h4>
+                <ul className="space-y-2 text-sm text-muted-foreground">
+                  <li><Link href="#about" className="hover:text-primary">Sobre nós</Link></li>
+                  <li><a href="#" className="hover:text-primary">Carreiras</a></li>
+                  <li><Link href="#contact" className="hover:text-primary">Contato</Link></li>
+                </ul>
+              </div>
+              <div>
+                <h4 className="font-semibold mb-3">Legal</h4>
+                <ul className="space-y-2 text-sm text-muted-foreground">
+                   <li>
+                    <DialogTrigger asChild>
+                       <button className="hover:text-primary">Termos de Serviço</button>
+                    </DialogTrigger>
+                  </li>
+                  <li><a href="#" className="hover:text-primary">Política de Privacidade</a></li>
+                </ul>
+              </div>
+            </div>
+          </div>
+          <div className="mt-8 pt-8 border-t flex flex-col sm:flex-row justify-between items-center">
             <p className="text-sm text-muted-foreground">
-              Transformando a maneira como restaurantes apresentam seus pratos.
+              © {new Date().getFullYear()} Cardaloom. Todos os direitos reservados.
             </p>
-          </div>
-          <div className="grid grid-cols-2 gap-8 md:col-span-2 md:grid-cols-3">
-            <div>
-              <h4 className="font-semibold mb-3">Produto</h4>
-              <ul className="space-y-2 text-sm text-muted-foreground">
-                <li><Link href="#features" className="hover:text-primary">Funcionalidades</Link></li>
-                <li><Link href="#pricing" className="hover:text-primary">Preços</Link></li>
-                <li><a href="#" className="hover:text-primary">Exemplos</a></li>
-              </ul>
-            </div>
-            <div>
-              <h4 className="font-semibold mb-3">Empresa</h4>
-              <ul className="space-y-2 text-sm text-muted-foreground">
-                <li><Link href="#about" className="hover:text-primary">Sobre nós</Link></li>
-                <li><a href="#" className="hover:text-primary">Carreiras</a></li>
-                <li><Link href="#contact" className="hover:text-primary">Contato</Link></li>
-              </ul>
-            </div>
-            <div>
-              <h4 className="font-semibold mb-3">Legal</h4>
-              <ul className="space-y-2 text-sm text-muted-foreground">
-                <li><a href="#" className="hover:text-primary">Termos de Serviço</a></li>
-                <li><a href="#" className="hover:text-primary">Política de Privacidade</a></li>
-              </ul>
+            <div className="flex items-center gap-4 mt-4 sm:mt-0">
+              <a href="#" aria-label="Facebook" className="text-muted-foreground hover:text-primary"><Facebook size={20} /></a>
+              <a href="#" aria-label="Twitter" className="text-muted-foreground hover:text-primary"><Twitter size={20} /></a>
+              <a href="#" aria-label="Instagram" className="text-muted-foreground hover:text-primary"><Instagram size={20} /></a>
             </div>
           </div>
         </div>
-        <div className="mt-8 pt-8 border-t flex flex-col sm:flex-row justify-between items-center">
-          <p className="text-sm text-muted-foreground">
-            © {new Date().getFullYear()} Cardaloom. Todos os direitos reservados.
-          </p>
-          <div className="flex items-center gap-4 mt-4 sm:mt-0">
-            <a href="#" aria-label="Facebook" className="text-muted-foreground hover:text-primary"><Facebook size={20} /></a>
-            <a href="#" aria-label="Twitter" className="text-muted-foreground hover:text-primary"><Twitter size={20} /></a>
-            <a href="#" aria-label="Instagram" className="text-muted-foreground hover:text-primary"><Instagram size={20} /></a>
+      </footer>
+       <DialogContent className="sm:max-w-3xl">
+        <DialogHeader>
+          <DialogTitle>Termos de Serviço</DialogTitle>
+          <DialogDescription>
+            Última atualização: {new Date().toLocaleDateString('pt-BR')}
+          </DialogDescription>
+        </DialogHeader>
+        <ScrollArea className="max-h-[60vh] pr-6">
+          <div className="space-y-4 text-sm text-muted-foreground">
+             <h3 className="font-semibold text-foreground">1. Aceitação dos Termos</h3>
+            <p>Ao acessar e usar a plataforma Cardaloom ("Serviço"), você concorda em cumprir e estar sujeito a estes Termos de Serviço. Se você não concorda com estes termos, não use o Serviço.</p>
+
+            <h3 className="font-semibold text-foreground">2. Descrição do Serviço</h3>
+            <p>A Cardaloom fornece uma plataforma para que restaurantes e estabelecimentos similares ("Clientes") criem, gerenciem e compartilhem cardápios digitais. O serviço inclui, mas não se limita a, hospedagem de cardápios, ferramentas de personalização e integração com pedidos via WhatsApp.</p>
+
+            <h3 className="font-semibold text-foreground">3. Contas de Usuário</h3>
+            <p>Para acessar certas funcionalidades, você deve criar uma conta. Você é responsável por manter a confidencialidade de sua senha e por todas as atividades que ocorrem em sua conta. Você concorda em nos notificar imediatamente sobre qualquer uso não autorizado de sua conta.</p>
+
+            <h3 className="font-semibold text-foreground">4. Conteúdo do Cliente</h3>
+            <p>Você retém todos os direitos sobre o conteúdo que carrega na plataforma, incluindo nomes de produtos, descrições, preços e imagens ("Conteúdo do Cliente"). Ao carregar o Conteúdo do Cliente, você nos concede uma licença mundial, não exclusiva e isenta de royalties para hospedar, exibir e distribuir seu conteúdo exclusivamente com o propósito de operar e promover o Serviço.</p>
+
+            <h3 className="font-semibold text-foreground">5. Uso Aceitável</h3>
+            <p>Você concorda em não usar o Serviço para qualquer finalidade ilegal ou proibida por estes Termos. Você não pode usar o Serviço de qualquer maneira que possa danificar, desabilitar, sobrecarregar ou prejudicar nossos servidores ou redes.</p>
+
+            <h3 className="font-semibold text-foreground">6. Pagamentos e Assinaturas</h3>
+            <p>Oferecemos planos de assinatura pagos. As taxas de assinatura são cobradas mensal ou anualmente, conforme o plano selecionado. Todas as taxas não são reembolsáveis, exceto conforme exigido por lei. Nos reservamos o direito de alterar nossas taxas a qualquer momento, com aviso prévio.</p>
+
+            <h3 className="font-semibold text-foreground">7. Limitação de Responsabilidade</h3>
+            <p>Em nenhuma circunstância a Cardaloom será responsável por quaisquer danos diretos, indiretos, incidentais, especiais ou consequenciais resultantes do uso ou da incapacidade de usar o Serviço.</p>
+
+            <h3 className="font-semibold text-foreground">8. Alterações nos Termos</h3>
+            <p>Reservamo-nos o direito de modificar estes Termos a qualquer momento. Notificaremos sobre quaisquer alterações, publicando os novos Termos de Serviço nesta página. O uso continuado do Serviço após tais alterações constitui sua aceitação dos novos Termos.</p>
+
+             <h3 className="font-semibold text-foreground">9. Contato</h3>
+            <p>Se você tiver alguma dúvida sobre estes Termos, entre em contato conosco através da seção "Fale Conosco" em nosso site.</p>
           </div>
-        </div>
-      </div>
-    </footer>
+        </ScrollArea>
+        <DialogFooter>
+          <DialogClose asChild>
+            <Button type="button">Fechar</Button>
+          </DialogClose>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
