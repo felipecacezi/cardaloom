@@ -1,6 +1,7 @@
 import Header from '@/components/landing/header';
 import Hero from '@/components/landing/hero';
 import Features from '@/components/landing/features';
+import Pricing from '@/components/landing/pricing';
 import Contact from '@/components/landing/contact';
 import Footer from '@/components/landing/footer';
 
@@ -11,6 +12,7 @@ export default function Home() {
       <main className="flex-1 container mx-auto px-4">
         <Hero />
         <Features />
+        <Pricing />
         <Contact />
       </main>
       <Footer />

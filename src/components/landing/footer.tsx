@@ -1,5 +1,6 @@
 import { Logo } from '@/components/logo';
 import { Facebook, Twitter, Instagram } from 'lucide-react';
+import Link from 'next/link';
 
 export default function Footer() {
   return (
@@ -16,8 +17,8 @@ export default function Footer() {
             <div>
               <h4 className="font-semibold mb-3">Produto</h4>
               <ul className="space-y-2 text-sm text-muted-foreground">
-                <li><a href="#features" className="hover:text-primary">Funcionalidades</a></li>
-                <li><a href="#" className="hover:text-primary">Preços</a></li>
+                <li><Link href="#features" className="hover:text-primary">Funcionalidades</Link></li>
+                <li><Link href="#pricing" className="hover:text-primary">Preços</Link></li>
                 <li><a href="#" className="hover:text-primary">Exemplos</a></li>
               </ul>
             </div>
