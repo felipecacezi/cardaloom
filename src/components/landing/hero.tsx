@@ -24,7 +24,7 @@ export default function Hero() {
       </div>
       <div className="relative h-[300px] lg:h-[500px]">
         <Image
-          src="https://placehold.co/600x400.png"
+          src="/img/undraw_mobile-site_qjby.svg"
           alt="Exemplo de cardápio digital em um smartphone"
           fill
           className="object-contain rounded-xl"

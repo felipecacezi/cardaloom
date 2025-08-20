@@ -89,12 +89,12 @@ export default function Contact() {
             </form>
           </Form>
         </div>
-        <div className="order-1 lg:order-2 relative h-full min-h-[300px] lg:min-h-0">
+        <div className="order-1 lg:order-2 relative h-80 min-h-[300px]">
           <Image
             src="/img/undraw_mail-sent_ujev.svg"
             alt="Contato"
             fill
-            className="object-contain rounded-xl h-auto w-auto"
+            className="object-contain h-auto w-auto"
             data-ai-hint="contact support"
           />
         </div>
