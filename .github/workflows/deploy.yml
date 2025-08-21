@@ -1,0 +1,42 @@
+name: Deploy to VPS
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up SSH
+        uses: webfactory/ssh-agent@v0.8.1
+        with:
+          ssh-private-key: ${{ secrets.VPS_SSH_KEY }}
+
+      - name: Copy code to VPS
+        run: |
+          rsync -avz --delete ./ ${{ secrets.VPS_USER }}@${{ secrets.VPS_IP }}:/home/${{ secrets.VPS_USER }}/app/
+        env:
+          RSYNC_RSH: "ssh -o StrictHostKeyChecking=no"
+
+      - name: SSH and deploy
+        run: |
+          ssh ${{ secrets.VPS_USER }}@${{ secrets.VPS_IP }} << 'EOF'
+            cd /home/${{ secrets.VPS_USER }}/app
+
+            # Substitui domínio e e-mail do Traefik automaticamente
+            sed -i "s/SEU_DOMINIO/${DOMAIN}/g" docker-compose.prod.yml
+            sed -i "s/SEU_EMAIL/${EMAIL}/g" docker-compose.prod.yml
+
+            # Build local e deploy Swarm
+            docker compose -f docker-compose.prod.yml build frontend
+            docker stack deploy -c docker-compose.prod.yml myapp
+          EOF
+        env:
+          DOMAIN: ${{ secrets.DOMAIN }}
+          EMAIL: ${{ secrets.EMAIL }}
