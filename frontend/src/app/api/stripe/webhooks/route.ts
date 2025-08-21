@@ -109,7 +109,7 @@ export async function POST(req: NextRequest) {
         default:
     }
     return NextResponse.json({ received: true });
-  } catch (error) => {
+  } catch (error) {
       console.error("Error processing webhook:", error);
       return NextResponse.json({ error: "Internal server error during webhook processing." }, { status: 500 });
   }
