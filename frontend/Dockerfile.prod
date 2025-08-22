@@ -11,13 +11,7 @@ ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NEXT_PUBLIC_FIREBASE_DATABASE_URL=placeholder
 
-RUN if [ ! -d "src/components/ui" ]; then \
-      echo "Instalando componentes shadcn/ui..." && \
-      npx shadcn@latest init --yes --defaults && \
-      npx shadcn@latest add button card dropdown-menu table sidebar --yes; \
-    else \
-      echo "Componentes shadcn/ui já existem"; \
-    fi
+RUN npx shadcn@latest add button card dropdown-menu table sidebar --yes
 
 RUN npm run build
 
