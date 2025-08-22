@@ -1,20 +1,22 @@
 FROM node:20-alpine AS builder
 WORKDIR /app
 
+# Copia package.json e package-lock.json
 COPY package*.json ./
 
-RUN npm ci --only=production && npm cache clean --force
+# Instala todas as dependências (prod + dev)
+RUN npm ci
 
+# Copia todo o código
 COPY . .
 
-ENV NODE_ENV=production
-ENV NEXT_TELEMETRY_DISABLED=1
-ENV NEXT_PUBLIC_FIREBASE_DATABASE_URL=placeholder
-
+# Adiciona os componentes shadcn (usa devDeps)
 RUN npx shadcn@latest add button card dropdown-menu table sidebar --yes
 
+# Build do Next.js
 RUN npm run build
 
+# Runner final
 FROM node:20-alpine AS runner
 WORKDIR /app
 
