@@ -31,6 +31,8 @@ services:
     image: frontend:latest
     environment:
       - NODE_ENV=production
+      - NEXT_PUBLIC_FIREBASE_DATABASE_URL=${NEXT_PUBLIC_FIREBASE_DATABASE_URL}
+      - FIREBASE_SERVICE_ACCOUNT_KEY=${FIREBASE_SERVICE_ACCOUNT_KEY_BASE64}
     deploy:
       replicas: 1
       labels:
