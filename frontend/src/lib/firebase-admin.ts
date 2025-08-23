@@ -39,10 +39,10 @@ export const initializeAdminApp = () => {
 
   try {
     const credentials = getServiceAccount();
-    const databaseURL = process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL;
+    const databaseURL = process.env.FIREBASE_DATABASE_URL;
 
     if (!databaseURL) {
-      throw new Error('NEXT_PUBLIC_FIREBASE_DATABASE_URL não está definida');
+      throw new Error('FIREBASE_DATABASE_URL não está definida');
     }
 
     admin.initializeApp({
