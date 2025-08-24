@@ -1,8 +1,5 @@
-
 import { initializeApp, getApp, getApps } from "firebase/app";
 import { getAuth } from "firebase/auth";
-import { auth } from "@/lib/firebase-client";
-
 import { getDatabase } from "firebase/database";
 
 const firebaseConfig = {
@@ -16,9 +13,8 @@ const firebaseConfig = {
   measurementId: "G-89EXHJ8FRQ"
 };
 
-
-
-const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+const auth = getAuth(app);
 const realtimeDb = getDatabase(app);
 
 export { app, auth, realtimeDb };
