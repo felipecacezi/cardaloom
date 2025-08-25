@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { initializeAdminApp } from '@/lib/firebase-admin';
 import { getDatabase, ref, set, get } from 'firebase/database';
+import '@/lib/firebase-client';
 
 const admin = initializeAdminApp();
 const adminAuth = admin.auth();
