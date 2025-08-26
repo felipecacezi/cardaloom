@@ -42,4 +42,4 @@ jobs:
           EOF
         env:
           DOMAIN: ${{ secrets.DOMAIN }}
-          EMAIL: ${{ secrets.EMAIL }}
+          EMAIL: ${{ secrets.EMAIL }} 
