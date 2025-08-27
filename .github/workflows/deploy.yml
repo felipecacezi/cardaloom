@@ -38,7 +38,7 @@ jobs:
             docker image prune -af
 
             # Build da imagem local usando Dockerfile.prod
-            docker build -t frontend:latest ./frontend
+            docker build -t frontend:latest -f ./frontend/Dockerfile.prod ./frontend
 
             # Deploy no Swarm usando a imagem local
             docker stack deploy -c docker-compose.prod.yml myapp
