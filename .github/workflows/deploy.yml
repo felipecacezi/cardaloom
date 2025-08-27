@@ -38,7 +38,11 @@ jobs:
             docker image prune -af
 
             # Build da imagem local usando Dockerfile.prod
-            docker build -t frontend:latest -f ./frontend/Dockerfile.prod ./frontend
+            docker build \
+              --build-arg FIREBASE_SERVICE_ACCOUNT_KEY="${FIREBASE_SERVICE_ACCOUNT_KEY}" \
+              -t frontend:latest \
+              -f ./frontend/Dockerfile.prod ./frontend
+
 
             # Deploy no Swarm usando a imagem local
             docker stack deploy -c docker-compose.prod.yml myapp
@@ -46,3 +50,4 @@ jobs:
         env:
           DOMAIN: ${{ secrets.DOMAIN }}
           EMAIL: ${{ secrets.EMAIL }}
+          FIREBASE_SERVICE_ACCOUNT_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }}
