@@ -3,55 +3,41 @@ name: Deploy to VPS
 on:
   push:
     branches:
-      - main
+    - main
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+    - name: Checkout code
+      uses: actions/checkout@v3
 
-      - name: Set up SSH
-        uses: webfactory/ssh-agent@v0.8.0
-        with:
-          ssh-private-key: ${{ secrets.VPS_SSH_KEY }}
+    - name: Set up SSH
+      uses: webfactory/ssh-agent@v0.8.0
+      with:
+        ssh-private-key: ${{ secrets.VPS_SSH_KEY }}
 
-      - name: Copy code to VPS
-        run: |
-          rsync -avz --delete ./ ${{ secrets.VPS_USER }}@${{ secrets.VPS_IP }}:/root/app/
-        env:
-          RSYNC_RSH: "ssh -o StrictHostKeyChecking=no"
+    - name: Copy code to VPS
+      run: |
+        rsync -avz --delete ./ ${{ secrets.VPS_USER }}@${{ secrets.VPS_IP }}:/root/app/
+      env:
+        RSYNC_RSH: "ssh -o StrictHostKeyChecking=no"
 
-      - name: SSH and deploy
-        run: |
-          ssh ${{ secrets.VPS_USER }}@${{ secrets.VPS_IP }} << 'EOF'
-            set -e
-            cd /root/app
+    - name: SSH and deploy (Docker Swarm)
+      run: |
+        ssh ${{ secrets.VPS_USER }}@${{ secrets.VPS_IP }} << 'EOF'
+          set -e
+          cd /root/app
 
-            # Substitui placeholders de domínio e e-mail
-            sed -i "s/2fsolucoes.com.br/${DOMAIN}/g" docker-compose.prod.yml
-            sed -i "s/felipecacezi@gmail.com/${EMAIL}/g" docker-compose.prod.yml
+          cat <<EOT > .env
+          DOMAIN=${{ secrets.DOMAIN }}
+          EMAIL=${{ secrets.EMAIL }}
+          FIREBASE_DATABASE_URL=${{ secrets.FIREBASE_DATABASE_URL }}
+          FIREBASE_SERVICE_ACCOUNT_KEY='${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }}'
+          EOT
+          sed -i "s/2fsolucoes.com.br/${{ secrets.DOMAIN }}/g" docker-compose.prod.yml
+          sed -i "s/felipecacezi@gmail.com/${{ secrets.EMAIL }}/g" docker-compose.prod.yml
 
-            # Limpa imagens antigas (opcional)
-            docker image prune -af
-
-            # Ativa BuildKit para segredos
-            export DOCKER_BUILDKIT=1
-
-            # Build seguro usando os segredos do Firebase
-            docker build \
-              --secret id=firebase_key,env=FIREBASE_SERVICE_ACCOUNT_KEY \
-              --secret id=firebase_db_url,env=FIREBASE_DATABASE_URL \
-              -t frontend:latest \
-              -f ./frontend/Dockerfile.prod ./frontend
-
-            # Deploy no Swarm usando a imagem local
-            docker stack deploy -c docker-compose.prod.yml myapp
-          EOF
-        env:
-          DOMAIN: ${{ secrets.DOMAIN }}
-          EMAIL: ${{ secrets.EMAIL }}
-          FIREBASE_SERVICE_ACCOUNT_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }}
-          FIREBASE_DATABASE_URL: ${{ secrets.FIREBASE_DATABASE_URL }}
+          docker stack deploy -c docker-compose.prod.yml myapp
+        EOF
