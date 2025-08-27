@@ -20,13 +20,13 @@ jobs:
 
       - name: Copy code to VPS
         run: |
-          rsync -avz --delete ./ root@${{ secrets.VPS_IP }}:/root/app/
+          rsync -avz --delete ./ ${{ secrets.VPS_USER }}@${{ secrets.VPS_IP }}:/root/app/
         env:
           RSYNC_RSH: "ssh -o StrictHostKeyChecking=no"
 
       - name: SSH and deploy
         run: |
-          ssh root@${{ secrets.VPS_IP }} << 'EOF'
+          ssh ${{ secrets.VPS_USER }}@${{ secrets.VPS_IP }} << 'EOF'
             cd /root/app
 
             # Substitui placeholders de domínio e e-mail
