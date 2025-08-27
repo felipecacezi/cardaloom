@@ -24,9 +24,6 @@ services:
           - node.role == manager
 
   frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile.prod
     image: frontend:latest
     environment:
       NODE_ENV: production
