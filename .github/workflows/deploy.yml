@@ -30,14 +30,21 @@ jobs:
           set -e
           cd /root/app
 
+          # Cria/atualiza variáveis de ambiente
           cat <<EOT > .env
           DOMAIN=${{ secrets.DOMAIN }}
           EMAIL=${{ secrets.EMAIL }}
           FIREBASE_DATABASE_URL=${{ secrets.FIREBASE_DATABASE_URL }}
           FIREBASE_SERVICE_ACCOUNT_KEY='${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }}'
           EOT
-          sed -i "s/2fsolucoes.com.br/${{ secrets.DOMAIN }}/g" docker-compose.prod.yml
-          sed -i "s/felipecacezi@gmail.com/${{ secrets.EMAIL }}/g" docker-compose.prod.yml
 
-          docker stack deploy -c docker-compose.prod.yml myapp
+          # Build da imagem Docker
+          docker build -t frontend:latest .
+
+          # Deploy no Swarm (atualiza ou cria o serviço)
+          docker service update --image frontend:latest myapp_frontend || \
+          docker service create --name myapp_frontend frontend:latest
+
+          # Se usar docker-compose.yml para stack deploy, substitua pelo comando abaixo:
+          # docker stack deploy -c docker-compose.yml mystack
         EOF
