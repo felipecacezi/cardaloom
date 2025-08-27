@@ -37,14 +37,14 @@ jobs:
             # Limpa imagens antigas (opcional)
             docker image prune -af
 
+            # Ativa BuildKit para segredos
             export DOCKER_BUILDKIT=1
 
-            # Build da imagem local usando Dockerfile.prod
+            # Build seguro usando segredo do Firebase
             docker build \
               --secret id=firebase_key,env=FIREBASE_SERVICE_ACCOUNT_KEY \
               -t frontend:latest \
               -f ./frontend/Dockerfile.prod ./frontend
-
 
             # Deploy no Swarm usando a imagem local
             docker stack deploy -c docker-compose.prod.yml myapp

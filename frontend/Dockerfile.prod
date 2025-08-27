@@ -1,13 +1,10 @@
+# Build do Next.js
 FROM node:20-alpine AS builder
 WORKDIR /app
 
-# Copia package.json e package-lock.json
 COPY package*.json ./
-
-# Instala todas as dependências (prod + dev)
 RUN npm ci
 
-# Copia todo o código
 COPY . .
 
 # Adiciona os componentes shadcn (usa devDeps)
@@ -22,13 +19,11 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
-ARG FIREBASE_SERVICE_ACCOUNT_KEY
-ENV FIREBASE_SERVICE_ACCOUNT_KEY=$FIREBASE_SERVICE_ACCOUNT_KEY
 
+# Carrega segredo do BuildKit
 RUN --mount=type=secret,id=firebase_key,target=/run/secrets/firebase_key \
     export FIREBASE_SERVICE_ACCOUNT_KEY=$(cat /run/secrets/firebase_key) && \
     echo "Firebase secret loaded"
-
 
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
