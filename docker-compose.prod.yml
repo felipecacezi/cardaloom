@@ -24,23 +24,23 @@ services:
           - node.role == manager
 
   frontend:
-  build:
-    context: ./frontend
-    dockerfile: Dockerfile.prod
-  image: frontend:latest
-  environment:
-    - NODE_ENV=production
-    - FIREBASE_DATABASE_URL=${FIREBASE_DATABASE_URL}
-    - FIREBASE_SERVICE_ACCOUNT_KEY=${FIREBASE_SERVICE_ACCOUNT_KEY_BASE64}
-  deploy:
-    replicas: 1
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.frontend.rule=Host(`SEU_DOMINIO.com.br`)"
-      - "traefik.http.routers.frontend.entrypoints=websecure"
-      - "traefik.http.routers.frontend.tls.certresolver=myresolver"
-    restart_policy:
-      condition: on-failure
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+    image: frontend:latest
+    environment:
+      NODE_ENV: production
+      FIREBASE_DATABASE_URL: ${FIREBASE_DATABASE_URL}
+      FIREBASE_SERVICE_ACCOUNT_KEY: ${FIREBASE_SERVICE_ACCOUNT_KEY_BASE64}
+    deploy:
+      replicas: 1
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.frontend.rule=Host(`SEU_DOMINIO.com.br`)"
+        - "traefik.http.routers.frontend.entrypoints=websecure"
+        - "traefik.http.routers.frontend.tls.certresolver=myresolver"
+      restart_policy:
+        condition: on-failure
 
 volumes:
   traefik_letsencrypt:
