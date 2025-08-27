@@ -28,12 +28,12 @@ services:
     environment:
       NODE_ENV: production
       FIREBASE_DATABASE_URL: ${FIREBASE_DATABASE_URL}
-      FIREBASE_SERVICE_ACCOUNT_KEY: ${FIREBASE_SERVICE_ACCOUNT_KEY_BASE64}
+      FIREBASE_SERVICE_ACCOUNT_KEY: ${FIREBASE_SERVICE_ACCOUNT_KEY}
     deploy:
       replicas: 1
       labels:
         - "traefik.enable=true"
-        - "traefik.http.routers.frontend.rule=Host(`SEU_DOMINIO.com.br`)"
+        - "traefik.http.routers.frontend.rule=Host(`2fsolucoes.com.br`)"
         - "traefik.http.routers.frontend.entrypoints=websecure"
         - "traefik.http.routers.frontend.tls.certresolver=myresolver"
       restart_policy:
