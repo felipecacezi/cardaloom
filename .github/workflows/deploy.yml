@@ -31,8 +31,8 @@ jobs:
             cd /root/app
 
             # Substitui placeholders de domínio e e-mail
-            sed -i "s/2fsolucoes.com.br/${{ DOMAIN }}/g" docker-compose.prod.yml
-            sed -i "s/felipecacezi@gmail.com/${{ EMAIL }}/g" docker-compose.prod.yml
+            sed -i "s/2fsolucoes.com.br/${DOMAIN}/g" docker-compose.prod.yml
+            sed -i "s/felipecacezi@gmail.com/${EMAIL}/g" docker-compose.prod.yml
 
             # Limpa imagens antigas (opcional)
             docker image prune -af
