@@ -31,8 +31,8 @@ jobs:
             cd /root/app
 
             # Substitui placeholders de domínio e e-mail
-            sed -i "s/2fsolucoes.com.br/${DOMAIN}/g" docker-compose.prod.yml
-            sed -i "s/felipecacezi@gmail.com/${EMAIL}/g" docker-compose.prod.yml
+            sed -i "s/2fsolucoes.com.br/${{ DOMAIN }}/g" docker-compose.prod.yml
+            sed -i "s/felipecacezi@gmail.com/${{ EMAIL }}/g" docker-compose.prod.yml
 
             # Limpa imagens antigas (opcional)
             docker image prune -af
@@ -40,9 +40,9 @@ jobs:
             # Ativa BuildKit para segredos
             export DOCKER_BUILDKIT=1
 
-            # Build seguro usando segredo do Firebase
+            # Build seguro usando build-arg para o segredo do Firebase
             docker build \
-              --secret id=firebase_key,env=FIREBASE_SERVICE_ACCOUNT_KEY \
+              --build-arg FIREBASE_SERVICE_ACCOUNT_KEY=${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }} \
               -t frontend:latest \
               -f ./frontend/Dockerfile.prod ./frontend
 

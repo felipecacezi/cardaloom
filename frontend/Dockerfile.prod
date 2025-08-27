@@ -1,4 +1,7 @@
 FROM node:20-alpine AS builder
+
+ARG FIREBASE_SERVICE_ACCOUNT_KEY
+
 WORKDIR /app
 
 COPY package*.json ./
@@ -8,14 +11,19 @@ COPY . .
 
 RUN npx shadcn@latest add button card dropdown-menu table sidebar --yes
 
-RUN --mount=type=secret,id=firebase_key,target=/run/secrets/firebase_key \
-    FIREBASE_SERVICE_ACCOUNT_KEY=$(cat /run/secrets/firebase_key) npm run build
+
+ENV FIREBASE_SERVICE_ACCOUNT_KEY=$FIREBASE_SERVICE_ACCOUNT_KEY
+
+RUN npm run build
 
 FROM node:20-alpine AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
+
+ENV FIREBASE_SERVICE_ACCOUNT_KEY=${FIREBASE_SERVICE_ACCOUNT_KEY}
+
 
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
