@@ -37,9 +37,11 @@ jobs:
             # Limpa imagens antigas (opcional)
             docker image prune -af
 
+            export DOCKER_BUILDKIT=1
+
             # Build da imagem local usando Dockerfile.prod
             docker build \
-              --build-arg FIREBASE_SERVICE_ACCOUNT_KEY="${FIREBASE_SERVICE_ACCOUNT_KEY}" \
+              --secret id=firebase_key,env=FIREBASE_SERVICE_ACCOUNT_KEY \
               -t frontend:latest \
               -f ./frontend/Dockerfile.prod ./frontend
 
