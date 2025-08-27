@@ -1,45 +1,43 @@
-name: Deploy to VPS
+version: "3.9"
+services:
+  traefik:
+    image: traefik:v2.15
+    command:
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.swarmMode=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.myresolver.acme.tlschallenge=true"
+      - "--certificatesresolvers.myresolver.acme.email=SEU_EMAIL"
+      - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - traefik_letsencrypt:/letsencrypt
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
 
-on:
-  push:
-    branches:
-      - main
+  frontend:
+    image: frontend:latest   # << apenas a imagem
+    environment:
+      - NODE_ENV=production
+      - FIREBASE_DATABASE_URL=${FIREBASE_DATABASE_URL}
+      - FIREBASE_SERVICE_ACCOUNT_KEY=${FIREBASE_SERVICE_ACCOUNT_KEY_BASE64}
+    deploy:
+      replicas: 1
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.frontend.rule=Host(`SEU_DOMINIO.com.br`)"
+        - "traefik.http.routers.frontend.entrypoints=websecure"
+        - "traefik.http.routers.frontend.tls.certresolver=myresolver"
+      restart_policy:
+        condition: on-failure
 
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-
-      - name: Set up SSH
-        uses: webfactory/ssh-agent@v0.7.0
-        with:
-          ssh-private-key: ${{ secrets.VPS_SSH_KEY }}
-
-      - name: Copy code to VPS
-        run: |
-          rsync -avz --delete ./ ${{ secrets.VPS_USER }}@${{ secrets.VPS_IP }}:/root/app/
-        env:
-          RSYNC_RSH: "ssh -o StrictHostKeyChecking=no"
-
-      - name: SSH and deploy
-        run: |
-          ssh ${{ secrets.VPS_USER }}@${{ secrets.VPS_IP }} << 'EOF'
-            cd /root/app
-
-            # Substitui placeholders de domínio e e-mail
-            sed -i "s/2fsolucoes.com.br/${DOMAIN}/g" docker-compose.prod.yml
-            sed -i "s/felipecacezi@gmail.com/${EMAIL}/g" docker-compose.prod.yml
-
-            # Limpa imagens antigas
-            docker image prune -af
-
-            # Build da imagem local e deploy no Swarm
-            docker build -t frontend:latest ./frontend
-            docker stack deploy -c docker-compose.prod.yml myapp
-          EOF
-        env:
-          DOMAIN: ${{ secrets.DOMAIN }}
-          EMAIL: ${{ secrets.EMAIL }}
+volumes:
+  traefik_letsencrypt:
