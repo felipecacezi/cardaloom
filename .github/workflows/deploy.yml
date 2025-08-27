@@ -40,9 +40,10 @@ jobs:
             # Ativa BuildKit para segredos
             export DOCKER_BUILDKIT=1
 
-            # Build seguro usando build-arg para o segredo do Firebase
+            # Build seguro usando os segredos do Firebase
             docker build \
-              --build-arg FIREBASE_SERVICE_ACCOUNT_KEY=${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }} \
+              --secret id=firebase_key,env=FIREBASE_SERVICE_ACCOUNT_KEY \
+              --secret id=firebase_db_url,env=FIREBASE_DATABASE_URL \
               -t frontend:latest \
               -f ./frontend/Dockerfile.prod ./frontend
 
