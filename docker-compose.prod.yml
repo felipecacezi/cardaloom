@@ -36,6 +36,7 @@ services:
         - "traefik.http.routers.frontend.rule=Host(`2fsolucoes.com.br`)"
         - "traefik.http.routers.frontend.entrypoints=websecure"
         - "traefik.http.routers.frontend.tls.certresolver=myresolver"
+        - "traefik.http.services.frontend.loadbalancer.server.port=3000"
       restart_policy:
         condition: on-failure
 
