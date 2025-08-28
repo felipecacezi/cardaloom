@@ -39,12 +39,12 @@ jobs:
           EOT
 
           # Build da imagem Docker
-          docker build -t frontend:latest .
+          docker build -t frontend:latest ./frontend
 
           # Deploy no Swarm (atualiza ou cria o serviço)
-          docker service update --image frontend:latest myapp_frontend || \
-          docker service create --name myapp_frontend frontend:latest
+          # docker service update --image frontend:latest myapp_frontend || \
+          # docker service create --name myapp_frontend frontend:latest
 
           # Se usar docker-compose.yml para stack deploy, substitua pelo comando abaixo:
-          # docker stack deploy -c docker-compose.yml mystack
+          docker stack deploy -c docker-compose.yml myapp
         EOF
