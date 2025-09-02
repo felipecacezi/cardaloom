@@ -1,4 +1,5 @@
 version: "3.9"
+
 services:
   traefik:
     image: traefik:v2.11
@@ -39,6 +40,19 @@ services:
         - "traefik.http.routers.frontend.entrypoints=websecure"
         - "traefik.http.routers.frontend.tls.certresolver=myresolver"
         - "traefik.http.services.frontend.loadbalancer.server.port=3000"
+      restart_policy:
+        condition: on-failure
+
+  uploads:
+    image: nginx:alpine
+    volumes:
+      - uploads_data:/usr/share/nginx/html/uploads
+    deploy:
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.uploads.rule=Host(`2fsolucoes.com.br`) && PathPrefix(`/uploads`)"
+        - "traefik.http.routers.uploads.entrypoints=websecure"
+        - "traefik.http.routers.uploads.tls.certresolver=myresolver"
       restart_policy:
         condition: on-failure
 
