@@ -30,7 +30,7 @@ services:
       FIREBASE_DATABASE_URL: ${FIREBASE_DATABASE_URL}
       FIREBASE_SERVICE_ACCOUNT_KEY: ${FIREBASE_SERVICE_ACCOUNT_KEY}
     volumes:
-      - /app/frontend/public/uploads:/app/public/uploads
+      - uploads_data:/app/public/uploads
     deploy:
       replicas: 1
       labels:
@@ -44,3 +44,4 @@ services:
 
 volumes:
   traefik_letsencrypt:
+  uploads_data:
