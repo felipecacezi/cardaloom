@@ -1,5 +1,4 @@
 version: "3.9"
-
 services:
   traefik:
     image: traefik:v2.11
@@ -31,7 +30,7 @@ services:
       FIREBASE_DATABASE_URL: ${FIREBASE_DATABASE_URL}
       FIREBASE_SERVICE_ACCOUNT_KEY: ${FIREBASE_SERVICE_ACCOUNT_KEY}
     volumes:
-      - uploads_data:/app/public/uploads
+      - /app/frontend/public/uploads:/app/public/uploads
     deploy:
       replicas: 1
       labels:
@@ -43,19 +42,5 @@ services:
       restart_policy:
         condition: on-failure
 
-  uploads:
-    image: nginx:alpine
-    volumes:
-      - uploads_data:/usr/share/nginx/html/uploads
-    deploy:
-      labels:
-        - "traefik.enable=true"
-        - "traefik.http.routers.uploads.rule=Host(`2fsolucoes.com.br`) && PathPrefix(`/uploads`)"
-        - "traefik.http.routers.uploads.entrypoints=websecure"
-        - "traefik.http.routers.uploads.tls.certresolver=myresolver"
-      restart_policy:
-        condition: on-failure
-
 volumes:
   traefik_letsencrypt:
-  uploads_data:
