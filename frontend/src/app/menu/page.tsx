@@ -30,6 +30,10 @@ import { Input } from "@/components/ui/input"
 import { realtimeDb } from "@/lib/firebase"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Logo } from "@/components/logo"
+import { UploadService } from "../../services/upload.service";
+import { MinioAdapter } from "../../adapters/upload/minio.adapter";
+
+const uploadService = new UploadService(new MinioAdapter());
 
 type Restaurant = {
   id: string // Cleaned CNPJ
@@ -138,10 +142,14 @@ function RestaurantSearchPage() {
   }
 
   const getBannerUrl = (restaurant: Restaurant) => {
-    if (restaurant.bannerImageId && images[restaurant.id] && images[restaurant.id][restaurant.bannerImageId]) {
-      return images[restaurant.id][restaurant.bannerImageId].filePath
+    const bannerImgId = restaurant.bannerImageId;
+    if (!bannerImgId) {
+      return "https://placehold.co/600x400.png"
     }
-    return "https://placehold.co/600x400.png"
+
+    if (images[restaurant.id] && images[restaurant.id][bannerImgId]) {
+      return uploadService.getPublicLink('','','',images[restaurant.id][bannerImgId].filePath)
+    }
   }
 
   return (
@@ -267,11 +275,11 @@ function MenuDisplayPage({ restaurantId }: { restaurantId: string }) {
           get(addonsRef),
           get(imagesRef),
         ])
-
+        
         if (!userSnap.exists()) {
           throw new Error("Restaurante não encontrado. Verifique o ID fornecido.")
         }
-
+        
         const userData = userSnap.val()
         setRestaurant({
           restaurantName: userData.restaurantName,
@@ -282,9 +290,9 @@ function MenuDisplayPage({ restaurantId }: { restaurantId: string }) {
         })
 
         const imgData = imgSnap.val() || {}
-        setImages(imgData)
+        setImages(imgData)        
 
-        if (userData.bannerImageId && imgData[userData.bannerImageId]) {
+        if (userData.bannerImageId && imgData[userData.bannerImageId]) {          
           setBannerUrl(imgData[userData.bannerImageId].filePath)
         }
 
@@ -471,7 +479,7 @@ function MenuDisplayPage({ restaurantId }: { restaurantId: string }) {
       <div className="min-h-screen bg-muted/20">
         <header className="relative h-48 md:h-64 w-full">
           <Image
-            src={bannerUrl || "https://placehold.co/1200x400.png"}
+            src={ uploadService.getPublicLink('','','',bannerUrl) || "https://placehold.co/1200x400.png"}
             alt="Banner do Restaurante"
             fill
             objectFit="cover"
@@ -544,7 +552,7 @@ function MenuDisplayPage({ restaurantId }: { restaurantId: string }) {
                       <CardContent className="p-0">
                         <div className="relative h-48 w-full">
                           <Image
-                            src={images[product.imageId]?.filePath || "https://placehold.co/600x400.png"}
+                            src={ uploadService.getPublicLink('','','', images[product.imageId]?.filePath) || "https://placehold.co/600x400.png"}
                             alt={product.name}
                             fill
                             objectFit="cover"
@@ -569,7 +577,7 @@ function MenuDisplayPage({ restaurantId }: { restaurantId: string }) {
                         </div>
                       </div>
                     </Card>
-                  ))}
+                ))}
                 </div>
               </section>
             )
